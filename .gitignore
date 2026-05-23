@@ -1,0 +1,6 @@
+.venv
+.buildozer
+bin
+__pycache__
+info.txt
+CLAUDE.md
