@@ -1,7 +1,8 @@
 # Guitar Tuner — Python dependencies
-# Requires Python 3.11 (https://www.python.org/downloads/release/python-3119/)
-# Install: pip install -r requirements.txt
-kivy==2.3.0
+# Requires Python 3.12 or 3.13 — Kivy has no wheel for Python 3.14 yet.
+# Download: https://www.python.org/downloads/
+# Install:  pip install -r requirements.txt
+kivy==2.3.1
 numpy>=1.24.0,<2.0
 plyer>=2.1.0
 sounddevice>=0.4.6
