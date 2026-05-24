@@ -31,7 +31,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: buildozer-${{ hashFiles('buildozer.spec') }}-v3
+          key: buildozer-${{ hashFiles('buildozer.spec') }}-v4
           restore-keys: buildozer-
 
       - name: Install system dependencies
@@ -41,7 +41,7 @@ jobs:
             git zip unzip \
             libffi-dev libssl-dev pkg-config \
             autoconf libtool cmake build-essential \
-            libncurses5
+            libncurses5 zlib1g-dev
 
       - name: Install buildozer and Cython
         run: pip install --upgrade pip buildozer cython
