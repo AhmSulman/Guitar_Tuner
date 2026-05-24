@@ -36,9 +36,9 @@ android.manifest.uses_feature = android.hardware.microphone
 # Gradle & Activity
 android.activity_class_name = org.kivy.android.PythonActivity
 
+# Accept SDK licenses (must be in [app] section — [buildozer] section is ignored)
+android.accept_sdk_license = True
+
 [buildozer]
 log_level = 2
 android.skip_update = False
-
-# Important: Accept SDK licenses automatically
-android.accept_sdk_license = True

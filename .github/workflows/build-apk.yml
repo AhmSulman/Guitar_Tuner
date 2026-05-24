@@ -48,19 +48,15 @@ jobs:
 
       - name: Pre-accept Android SDK licenses
         run: |
-          SDK_LICENSE_HASH_1='8933bad161af4178b1185d1a37fbf41ea5269c55'
-          SDK_LICENSE_HASH_2='d56f5187479451eabf01fb78af6dfcb131a6481e'
-          SDK_LICENSE_HASH_3='24333f8a63b6825ea9c5514f83c2829b004d1fee'
-          PREVIEW_HASH='84831b9409646a918e30573bab4c9c91346d8abd'
-          for DIR in \
-            "$HOME/.android/licenses" \
-            "$HOME/.buildozer/android/platform/android-sdk/licenses"; do
-            mkdir -p "$DIR"
-            printf '%s\n' "$SDK_LICENSE_HASH_1" "$SDK_LICENSE_HASH_2" "$SDK_LICENSE_HASH_3" \
-              > "$DIR/android-sdk-license"
-            printf '%s\n' "$PREVIEW_HASH" \
-              > "$DIR/android-sdk-preview-license"
-          done
+          mkdir -p "$HOME/.android/licenses"
+          printf '%s\n' \
+            '8933bad161af4178b1185d1a37fbf41ea5269c55' \
+            'd56f5187479451eabf01fb78af6dfcb131a6481e' \
+            '24333f8a63b6825ea9c5514f83c2829b004d1fee' \
+            > "$HOME/.android/licenses/android-sdk-license"
+          printf '%s\n' \
+            '84831b9409646a918e30573bab4c9c91346d8abd' \
+            > "$HOME/.android/licenses/android-sdk-preview-license"
 
       - name: Build APK
         run: yes | buildozer -v android debug
