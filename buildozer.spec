@@ -36,3 +36,4 @@ android.manifest.uses_feature = android.hardware.microphone:true
 [buildozer]
 log_level = 2
 android.skip_update = False
+android.accept_sdk_license = True 
