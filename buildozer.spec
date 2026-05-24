@@ -11,7 +11,7 @@ source.include_exts = py,png,jpg,kv,atlas,ttf,wav
 version = 1.0.0
 
 # Dependencies
-requirements = python3,kivy==2.3.0,numpy==1.26.4,plyer
+requirements = python3,kivy==2.3.0,numpy,plyer
 
 # Orientation
 orientation = portrait
@@ -20,7 +20,7 @@ fullscreen = 0
 # Android settings
 android.api = 34
 android.minapi = 26
-android.ndk = 27c
+android.ndk = 25c
 android.archs = arm64-v8a
 
 # Permissions
@@ -35,6 +35,9 @@ android.manifest.uses_feature = android.hardware.microphone
 
 # Gradle & Activity
 android.activity_class_name = org.kivy.android.PythonActivity
+
+# Local recipe overrides (numpy patch for missing <unordered_map> in NDK libc++)
+p4a.local_recipes = ./p4a_recipes
 
 # Accept SDK licenses (must be in [app] section — [buildozer] section is ignored)
 android.accept_sdk_license = True
