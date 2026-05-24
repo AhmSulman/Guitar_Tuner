@@ -31,7 +31,8 @@ _BT_KEYWORDS = ('bluetooth', 'bt ', ' bt', 'handsfree', 'hands-free',
 
 def list_input_devices(pa=None) -> list[dict]:
     """Return info dicts for every available input device."""
-    import pyaudio
+    #import pyaudio
+    from plyer import audio
     own = pa is None
     if own:
         pa = pyaudio.PyAudio()
