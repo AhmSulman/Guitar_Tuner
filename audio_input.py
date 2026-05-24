@@ -108,9 +108,8 @@ class _SounddeviceInput:
 class _AndroidAudioInput:
     """Direct raw PCM capture via android.media.AudioRecord (Android only).
 
-    Streams int16 PCM frames in a background thread, converts to float64,
-    and calls on_audio_ready with HISTORY-buffered chunks — same contract as
-    _SounddeviceInput. No file I/O required.
+    Uses read(short[], 0, n) with a Java array created via reflection so that
+    pyjnius reads directly from JVM memory — no bytearray copy-back issue.
     """
 
     _CHUNK_SECONDS = 0.25
@@ -133,36 +132,47 @@ class _AndroidAudioInput:
 
             AudioRecord = autoclass('android.media.AudioRecord')
             AudioFormat = autoclass('android.media.AudioFormat')
-            MediaRecorder = autoclass('android.media.MediaRecorder$AudioSource')
+            AudioSource = autoclass('android.media.MediaRecorder$AudioSource')
 
             channel_config = AudioFormat.CHANNEL_IN_MONO
             encoding = AudioFormat.ENCODING_PCM_16BIT
             min_buf = AudioRecord.getMinBufferSize(SAMPLE_RATE, channel_config, encoding)
-            # Use at least 2× the minimum to avoid overruns
-            buf_size = max(min_buf * 2, int(SAMPLE_RATE * self._CHUNK_SECONDS * 2))
+            if min_buf <= 0:
+                print(f'[AudioInput] getMinBufferSize failed ({min_buf}) — bad params or no mic')
+                self.running = False
+                return False
+
+            # 4× minimum so the internal ring buffer can absorb slow reads
+            buf_bytes = max(min_buf * 4, int(SAMPLE_RATE * self._CHUNK_SECONDS * 4))
 
             self._recorder = AudioRecord(
-                MediaRecorder.MIC,
+                AudioSource.MIC,
                 SAMPLE_RATE,
                 channel_config,
                 encoding,
-                buf_size,
+                buf_bytes,
             )
 
-            if self._recorder.getState() != 1:  # AudioRecord.STATE_INITIALIZED
-                print('[AudioInput] AudioRecord not initialized — check RECORD_AUDIO permission')
+            state = self._recorder.getState()
+            print(f'[AudioInput] AudioRecord.getState()={state}')
+            if state != 1:  # AudioRecord.STATE_INITIALIZED = 1
+                print('[AudioInput] not initialized — RECORD_AUDIO permission granted?')
                 self._recorder = None
                 self.running = False
                 return False
 
             self._recorder.startRecording()
+            print(f'[AudioInput] startRecording(), recordingState={self._recorder.getRecordingState()}')
+
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._record_loop, daemon=True)
             self.running = True
             self._thread.start()
             return True
         except Exception as exc:
+            import traceback
             print(f'[AudioInput] AudioRecord start failed: {exc}')
+            traceback.print_exc()
             self.running = False
             return False
 
@@ -187,21 +197,36 @@ class _AndroidAudioInput:
             return float(np.sqrt(np.mean(self._buffer[-1].astype(np.float64) ** 2)))
 
     def _record_loop(self):
+        from jnius import autoclass  # type: ignore[import]
+
+        # Create a Java short[] via reflection — stays as a JVM object so
+        # read() fills it in-place and short_arr[i] reads straight from JVM.
+        # Avoids the pyjnius bytearray copy-back problem entirely.
+        Array = autoclass('java.lang.reflect.Array')
+        Short = autoclass('java.lang.Short')
         chunk_frames = int(SAMPLE_RATE * self._CHUNK_SECONDS)
-        # int16 = 2 bytes per frame
-        read_size = chunk_frames * 2
+        short_arr = Array.newInstance(Short.TYPE, chunk_frames)
+
+        print(f'[AudioInput] record loop started, chunk_frames={chunk_frames}')
 
         while not self._stop_event.is_set():
             try:
                 if self._recorder is None:
                     break
-                buf = bytearray(read_size)
-                n = self._recorder.read(buf, read_size)
-                if n <= 0:
+
+                # 3-arg short[] read: read(short[] audioData, int offsetInShorts, int sizeInShorts)
+                n = self._recorder.read(short_arr, 0, chunk_frames)
+
+                if n < 0:
+                    print(f'[AudioInput] read() error code: {n}')
+                    continue
+                if n == 0:
                     continue
 
-                raw = bytes(buf[:n])
-                samples = np.frombuffer(raw, dtype='<i2').astype(np.float32) / 32768.0
+                # short_arr lives in JVM — iterate directly; pyjnius returns signed Python ints
+                samples = np.array(
+                    [short_arr[i] for i in range(n)], dtype=np.float32
+                ) / 32768.0
 
                 with self._lock:
                     self._buffer.append(samples)
@@ -215,7 +240,9 @@ class _AndroidAudioInput:
                     self.on_audio_ready(combined)
 
             except Exception as exc:
-                print(f'[AudioInput] AudioRecord read failed: {exc}')
+                import traceback
+                print(f'[AudioInput] record loop error: {exc}')
+                traceback.print_exc()
                 break
 
 
