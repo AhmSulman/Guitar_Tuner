@@ -1,5 +1,6 @@
 .venv
-.buildozer
 __pycache__
 info.txt
 CLAUDE.md
+.buildozer/
+*.log

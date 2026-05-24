@@ -24,7 +24,13 @@ RECORD_FILE = 'guitartuner_record.wav'
 
 def _record_filepath() -> str:
     if platform == 'android':
-        return f'/sdcard/{RECORD_FILE}'
+        try:
+            from jnius import autoclass  # type: ignore[import]
+            PythonActivity = autoclass('org.kivy.android.PythonActivity')
+            files_dir = PythonActivity.mActivity.getFilesDir().getAbsolutePath()
+            return os.path.join(files_dir, RECORD_FILE)
+        except Exception:
+            pass
     return os.path.join(tempfile.gettempdir(), RECORD_FILE)
 
 
