@@ -1,8 +1,0 @@
---- a/numpy/_core/src/multiarray/unique.cpp
-+++ b/numpy/_core/src/multiarray/unique.cpp
-@@ -5,6 +5,7 @@
- #include <Python.h>
-
- #include <unordered_set>
-+#include <unordered_map>
- #include <functional>

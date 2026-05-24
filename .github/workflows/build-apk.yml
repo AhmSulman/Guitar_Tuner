@@ -44,7 +44,7 @@ jobs:
             libncurses5 zlib1g-dev
 
       - name: Install buildozer and Cython
-        run: pip install --upgrade pip buildozer cython
+        run: pip install --upgrade pip buildozer "python-for-android==2024.1.21" cython
 
       - name: Pre-accept Android SDK licenses
         run: |

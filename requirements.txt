@@ -1,6 +1,7 @@
 # Guitar Tuner — Python dependencies
-# Install on Windows: pip install -r requirements.txt
+# Requires Python 3.11 (https://www.python.org/downloads/release/python-3119/)
+# Install: pip install -r requirements.txt
 kivy==2.3.0
-numpy>=1.24.0
+numpy>=1.24.0,<2.0
 plyer>=2.1.0
 sounddevice>=0.4.6

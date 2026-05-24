@@ -36,9 +36,6 @@ android.manifest.uses_feature = android.hardware.microphone
 # Gradle & Activity
 android.activity_class_name = org.kivy.android.PythonActivity
 
-# Local recipe overrides (numpy patch for missing <unordered_map> in NDK libc++)
-p4a.local_recipes = ./p4a_recipes
-
 # Accept SDK licenses (must be in [app] section — [buildozer] section is ignored)
 android.accept_sdk_license = True
 
