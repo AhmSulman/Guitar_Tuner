@@ -10,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 120
 
     steps:
       - name: Checkout code
@@ -45,11 +46,24 @@ jobs:
       - name: Install buildozer and Cython
         run: pip install --upgrade pip buildozer cython
 
-      - name: Accept Android SDK licenses
-        run: yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+      - name: Pre-accept Android SDK licenses
+        run: |
+          SDK_LICENSE_HASH_1='8933bad161af4178b1185d1a37fbf41ea5269c55'
+          SDK_LICENSE_HASH_2='d56f5187479451eabf01fb78af6dfcb131a6481e'
+          SDK_LICENSE_HASH_3='24333f8a63b6825ea9c5514f83c2829b004d1fee'
+          PREVIEW_HASH='84831b9409646a918e30573bab4c9c91346d8abd'
+          for DIR in \
+            "$HOME/.android/licenses" \
+            "$HOME/.buildozer/android/platform/android-sdk/licenses"; do
+            mkdir -p "$DIR"
+            printf '%s\n' "$SDK_LICENSE_HASH_1" "$SDK_LICENSE_HASH_2" "$SDK_LICENSE_HASH_3" \
+              > "$DIR/android-sdk-license"
+            printf '%s\n' "$PREVIEW_HASH" \
+              > "$DIR/android-sdk-preview-license"
+          done
 
       - name: Build APK
-        run: buildozer -v android debug
+        run: yes | buildozer -v android debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -57,3 +71,4 @@ jobs:
           name: GuitarTuner-APK
           path: bin/*.apk
           retention-days: 30
+          if-no-files-found: error
