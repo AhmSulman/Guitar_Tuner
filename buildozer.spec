@@ -36,6 +36,10 @@ android.manifest.uses_feature = android.hardware.microphone
 # Gradle & Activity
 android.activity_class_name = org.kivy.android.PythonActivity
 
+# Pin p4a to v2024.01.21 — uses Python 3.11.5, compatible with Kivy 2.3.0.
+# p4a master uses Python 3.14 which breaks Kivy 2.3.0's Cython C code.
+p4a.branch = v2024.01.21
+
 # Accept SDK licenses (must be in [app] section — [buildozer] section is ignored)
 android.accept_sdk_license = True
 
