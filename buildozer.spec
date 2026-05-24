@@ -11,7 +11,7 @@ source.include_exts = py,png,jpg,kv,atlas,ttf,wav
 version = 1.0.0
 
 # Dependencies
-requirements = python3,kivy==2.3.0,numpy,plyer
+requirements = python3,kivy==2.3.0,numpy
 
 # Orientation
 orientation = portrait
