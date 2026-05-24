@@ -11,7 +11,7 @@ source.include_exts = py,png,jpg,kv,atlas,ttf,wav
 version = 1.0.0
 
 # Dependencies
-requirements = python3,kivy==2.3.0,numpy,plyer
+requirements = python3,kivy==2.3.0,numpy==1.26.4,plyer
 
 # Orientation
 orientation = portrait
@@ -20,7 +20,7 @@ fullscreen = 0
 # Android settings
 android.api = 34
 android.minapi = 26
-android.ndk = 25c
+android.ndk = 27c
 android.archs = arm64-v8a
 
 # Permissions

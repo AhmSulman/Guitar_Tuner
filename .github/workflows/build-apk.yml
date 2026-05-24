@@ -31,7 +31,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: buildozer-${{ hashFiles('buildozer.spec') }}-v1
+          key: buildozer-${{ hashFiles('buildozer.spec') }}-v2
           restore-keys: buildozer-
 
       - name: Install system dependencies
@@ -59,6 +59,8 @@ jobs:
             > "$HOME/.android/licenses/android-sdk-preview-license"
 
       - name: Build APK
+        env:
+          ANDROIDNDK: /usr/local/lib/android/sdk/ndk/27.3.13750724
         run: yes | buildozer -v android debug
 
       - name: Upload APK artifact
