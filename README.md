@@ -13,13 +13,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
-> **PyAudio on Windows** — if `pip install pyaudio` fails, use the prebuilt wheel:
+> **Microphone input** — uses `plyer` for recording on Windows and Android.
 >
-> ```bash
-> pip install pipwin && pipwin install pyaudio
-> ```
->
-> Or download the `.whl` from <https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio>
+> `requirements.txt` now includes `plyer` instead of `pyaudio`.
 
 ### Microphone permission (Windows 10/11)
 

@@ -1,169 +1,70 @@
-"""Cross-platform microphone input via PyAudio.
+"""Cross-platform microphone input via Plyer.
 
-Runs a daemon background thread; fires on_audio_ready(samples_float64)
-from the audio callback — callers MUST marshal to the main Kivy thread
-(e.g. via Clock.schedule_once) before touching any widgets.
-
-Bluetooth headphone fix
------------------------
-Bluetooth headphones in HFP/HSP mode force Windows to 8 kHz or 16 kHz.
-We avoid them by:
-  1. Scoring each input device — penalise names containing BT keywords.
-  2. Trying 44100, 48000, 22050 Hz in order until one works.
-  3. If actual_rate != SAMPLE_RATE we resample the captured audio with
-     numpy so the pitch detector always sees 44100 Hz.
+Records short WAV chunks to disk and feeds them through the pitch detector.
+This avoids PyAudio and keeps the dependency stack lighter for Android builds.
 """
+import os
+import time
+import wave
+import tempfile
 import threading
 import numpy as np
 from collections import deque
+from typing import Any
+from plyer import audio as _plyer_audio
+from kivy.utils import platform
+
+plyer_audio: Any = _plyer_audio
 
 SAMPLE_RATE = 44100          # Target rate for pitch detection
-CHUNK_SIZE  = 2048           # Frames per callback
-HISTORY     = 3              # Chunks buffered → 6144 samples (~140 ms)
-
-# Rates tried in order when 44100 fails (e.g. BT headset mode)
-_FALLBACK_RATES = [44100, 48000, 22050, 16000]
-
-# Substrings that identify Bluetooth or low-quality input devices (lowercase)
-_BT_KEYWORDS = ('bluetooth', 'bt ', ' bt', 'handsfree', 'hands-free',
-                 'hfp', 'hsp', 'airpods', 'buds', 'headset')
+HISTORY     = 3              # Chunks buffered → 3 segments
+RECORD_SECONDS = 0.25        # Record segment length in seconds
+RECORD_FILE = 'guitartuner_record.wav'
 
 
-def list_input_devices(pa=None) -> list[dict]:
-    """Return info dicts for every available input device."""
-    #import pyaudio
-    from plyer import audio
-    own = pa is None
-    if own:
-        pa = pyaudio.PyAudio()
-    devices = []
-    for i in range(pa.get_device_count()):
-        info = pa.get_device_info_by_index(i)
-        if info.get('maxInputChannels', 0) > 0:
-            devices.append(info)
-    if own:
-        pa.terminate()
-    return devices
-
-
-def _is_bluetooth(info: dict) -> bool:
-    name = info.get('name', '').lower()
-    return any(kw in name for kw in _BT_KEYWORDS)
-
-
-def _score_device(info: dict) -> int:
-    """Lower score = more preferred. Bluetooth devices score high (bad)."""
-    score = 0
-    if _is_bluetooth(info):
-        score += 100
-    # Prefer higher native sample rates (more likely to be a real mic)
-    sr = info.get('defaultSampleRate', 0)
-    if sr < 22050:
-        score += 50
-    elif sr < 44100:
-        score += 20
-    return score
-
-
-def pick_best_device(pa) -> tuple[int | None, str]:
-    """
-    Return (device_index, device_name) for the best available input device.
-    Returns (None, 'default') when no non-BT device is found.
-    """
-    devices = list_input_devices(pa)
-    if not devices:
-        return None, 'default'
-
-    # Print all candidates for debugging
-    print('[AudioInput] Available input devices:')
-    for d in devices:
-        tag = ' [BT]' if _is_bluetooth(d) else ''
-        print(f"  [{d['index']}] {d['name']}  sr={d['defaultSampleRate']:.0f}{tag}")
-
-    devices.sort(key=_score_device)
-    best = devices[0]
-    print(f"[AudioInput] Selected: [{best['index']}] {best['name']}")
-    return int(best['index']), best['name']
+def _record_filepath() -> str:
+    if platform == 'android':
+        return f'/sdcard/{RECORD_FILE}'
+    return os.path.join(tempfile.gettempdir(), RECORD_FILE)
 
 
 class AudioInput:
-    """PyAudio microphone stream with automatic Bluetooth avoidance."""
+    """Plyer microphone recorder with file-based capture."""
 
     def __init__(self, on_audio_ready):
         self.on_audio_ready  = on_audio_ready
-        self._pa             = None
-        self._stream         = None
         self._buffer         = deque(maxlen=HISTORY)
         self._lock           = threading.Lock()
+        self._stop_event     = threading.Event()
+        self._record_path    = _record_filepath()
         self.running         = False
         self.actual_rate     = SAMPLE_RATE
-        self.device_name     = 'unknown'
+        self.device_name     = 'plyer'
         self.is_bluetooth    = False
-
-    # ── public ────────────────────────────────────────────────────────────
+        self._thread         = None
 
     def start(self) -> bool:
         try:
-            import pyaudio
-            self._pa = pyaudio.PyAudio()
-
-            device_idx, self.device_name = pick_best_device(self._pa)
-            self.is_bluetooth = _is_bluetooth(
-                self._pa.get_device_info_by_index(device_idx)
-                if device_idx is not None
-                else {}
-            )
-
-            # Try rates in preference order
-            opened = False
-            for rate in _FALLBACK_RATES:
-                try:
-                    kw = dict(
-                        format=pyaudio.paFloat32,
-                        channels=1,
-                        rate=rate,
-                        input=True,
-                        frames_per_buffer=CHUNK_SIZE,
-                        stream_callback=self._callback,
-                    )
-                    if device_idx is not None:
-                        kw['input_device_index'] = device_idx
-                    self._stream = self._pa.open(**kw)
-                    self.actual_rate = rate
-                    opened = True
-                    print(f'[AudioInput] Opened at {rate} Hz')
-                    break
-                except Exception as e:
-                    print(f'[AudioInput] {rate} Hz failed: {e}')
-
-            if not opened:
-                print('[AudioInput] All rates failed — trying system default')
-                self._stream = self._pa.open(
-                    format=pyaudio.paFloat32, channels=1,
-                    rate=44100, input=True,
-                    frames_per_buffer=CHUNK_SIZE,
-                    stream_callback=self._callback,
-                )
-                self.actual_rate = 44100
-
-            self._stream.start_stream()
+            plyer_audio.file_path = self._record_path
+            self._stop_event.clear()
+            self._thread = threading.Thread(target=self._record_loop, daemon=True)
             self.running = True
+            self._thread.start()
             return True
-
         except Exception as exc:
             print(f'[AudioInput] start failed: {exc}')
+            self.running = False
             return False
 
     def stop(self):
         self.running = False
-        for obj, action in [(self._stream, 'stop_stream'),
-                            (self._stream, 'close'),
-                            (self._pa,     'terminate')]:
-            try:
-                if obj:
-                    getattr(obj, action)()
-            except Exception:
-                pass
+        self._stop_event.set()
+        try:
+            plyer_audio.stop()
+        except Exception:
+            pass
+        if self._thread is not None:
+            self._thread.join(timeout=1.0)
 
     def get_rms(self) -> float:
         with self._lock:
@@ -171,35 +72,76 @@ class AudioInput:
                 return 0.0
             return float(np.sqrt(np.mean(self._buffer[-1].astype(np.float64) ** 2)))
 
-    # ── private ───────────────────────────────────────────────────────────
+    def _record_loop(self):
+        while not self._stop_event.is_set():
+            try:
+                plyer_audio.start()
+            except Exception as exc:
+                print(f'[AudioInput] record start failed: {exc}')
+                time.sleep(1.0)
+                continue
 
-    def _callback(self, in_data, frame_count, time_info, status):
-        import pyaudio
-        try:
-            chunk = np.frombuffer(in_data, dtype=np.float32).copy()
+            start_time = time.time()
+            while not self._stop_event.is_set() and time.time() - start_time < RECORD_SECONDS:
+                time.sleep(0.01)
 
-            # Resample to SAMPLE_RATE if the device runs at a different rate
-            if self.actual_rate != SAMPLE_RATE:
-                chunk = self._resample(chunk, self.actual_rate, SAMPLE_RATE)
+            try:
+                plyer_audio.stop()
+            except Exception as exc:
+                print(f'[AudioInput] record stop failed: {exc}')
+
+            samples, sample_rate = self._read_recording(self._record_path)
+            if samples is None:
+                continue
+
+            self.actual_rate = sample_rate
+            if sample_rate != SAMPLE_RATE:
+                samples = self._resample(samples, sample_rate, SAMPLE_RATE)
 
             with self._lock:
-                self._buffer.append(chunk)
+                self._buffer.append(samples)
                 if len(self._buffer) == HISTORY:
                     combined = np.concatenate(list(self._buffer)).astype(np.float64)
+                else:
+                    combined = None
 
-            if len(self._buffer) == HISTORY:
+            if combined is not None:
                 self.on_audio_ready(combined)
 
+    def _read_recording(self, path: str) -> tuple[np.ndarray | None, int]:
+        if not os.path.exists(path):
+            return None, SAMPLE_RATE
+
+        try:
+            with wave.open(path, 'rb') as wf:
+                frames = wf.readframes(wf.getnframes())
+                sample_rate = wf.getframerate()
+                channels = wf.getnchannels()
+                width = wf.getsampwidth()
+
+            if width == 1:
+                data = np.frombuffer(frames, dtype=np.uint8).astype(np.float32)
+                samples = (data - 128.0) / 128.0
+            elif width == 2:
+                samples = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+            elif width == 4:
+                samples = np.frombuffer(frames, dtype=np.int32).astype(np.float32) / 2147483648.0
+            else:
+                return None, sample_rate
+
+            if channels > 1:
+                samples = samples.reshape(-1, channels)[:, 0]
+
+            return samples, sample_rate
         except Exception as exc:
-            print(f'[AudioInput] callback error: {exc}')
-        return (None, pyaudio.paContinue)
+            print(f'[AudioInput] read failed: {exc}')
+            return None, SAMPLE_RATE
 
     @staticmethod
-    def _resample(audio: np.ndarray, from_rate: int, to_rate: int) -> np.ndarray:
-        """Simple linear interpolation resample (good enough for pitch detection)."""
+    def _resample(audio_array: np.ndarray, from_rate: int, to_rate: int) -> np.ndarray:
         if from_rate == to_rate:
-            return audio
-        ratio      = to_rate / from_rate
-        new_length = int(len(audio) * ratio)
-        old_idx    = np.linspace(0, len(audio) - 1, new_length)
-        return np.interp(old_idx, np.arange(len(audio)), audio).astype(np.float32)
+            return audio_array
+        ratio = to_rate / from_rate
+        new_length = int(len(audio_array) * ratio)
+        old_idx = np.linspace(0, len(audio_array) - 1, new_length)
+        return np.interp(old_idx, np.arange(len(audio_array)), audio_array).astype(np.float32)
