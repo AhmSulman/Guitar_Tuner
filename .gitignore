@@ -1,6 +1,37 @@
-.venv
-__pycache__
-info.txt
-.buildozer/
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
 *.log
+logs/
+
+# Sensitive / local config
+.env
+.env.*
+secrets.*
+*.key
+*.pem
+api_keys.*
+
+# Build artefacts
+.buildozer/
+bin/
+*.apk
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Misc
+info.txt
 .News
+News/
