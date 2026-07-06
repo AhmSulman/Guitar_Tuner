@@ -18,10 +18,13 @@ orientation = portrait
 fullscreen = 0
 
 # Android settings
-android.api = 34
+android.api = 35
 android.minapi = 26
 android.ndk = 25c
 android.archs = arm64-v8a
+
+# Google Play requires signed .aab (not .apk) for release submissions
+android.release_artifact = aab
 
 # Permissions
 android.permissions = RECORD_AUDIO, INTERNET

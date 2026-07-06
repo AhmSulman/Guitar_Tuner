@@ -3,6 +3,7 @@ name: Build Guitar Tuner APK
 on:
   push:
     branches: [ main, master ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -66,5 +67,82 @@ jobs:
         with:
           name: GuitarTuner-APK
           path: bin/*.apk
+          retention-days: 30
+          if-no-files-found: error
+
+  release:
+    # Signed .aab for Google Play — only runs when a version tag is pushed
+    # or the workflow is triggered manually, and only if the signing
+    # secrets are present (so plain pushes/PRs never need them).
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Cache buildozer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildozer
+          key: buildozer-release-${{ hashFiles('buildozer.spec') }}-v1
+          restore-keys: buildozer-release-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            git zip unzip \
+            libffi-dev libssl-dev pkg-config \
+            autoconf libtool cmake build-essential \
+            libncurses5 zlib1g-dev
+
+      - name: Install buildozer and Cython
+        run: pip install --upgrade pip buildozer cython
+
+      - name: Pre-accept Android SDK licenses
+        run: |
+          mkdir -p "$HOME/.android/licenses"
+          printf '%s\n' \
+            '8933bad161af4178b1185d1a37fbf41ea5269c55' \
+            'd56f5187479451eabf01fb78af6dfcb131a6481e' \
+            '24333f8a63b6825ea9c5514f83c2829b004d1fee' \
+            > "$HOME/.android/licenses/android-sdk-license"
+          printf '%s\n' \
+            '84831b9409646a918e30573bab4c9c91346d8abd' \
+            > "$HOME/.android/licenses/android-sdk-preview-license"
+
+      - name: Decode signing keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$HOME/release.keystore"
+
+      - name: Build signed release AAB
+        env:
+          P4A_RELEASE_KEYSTORE: /home/runner/release.keystore
+          P4A_RELEASE_KEYSTORE_PASSWD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          P4A_RELEASE_KEYALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          P4A_RELEASE_KEYALIAS_PASSWD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: yes | buildozer -v android release
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -f "$HOME/release.keystore"
+
+      - name: Upload signed AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GuitarTuner-AAB-signed
+          path: bin/*.aab
           retention-days: 30
           if-no-files-found: error
