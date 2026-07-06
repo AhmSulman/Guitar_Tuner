@@ -25,6 +25,10 @@ api_keys.*
 .buildozer/
 bin/
 *.apk
+*.aab
+*.keystore
+*.jks
+secrets.env
 
 # Editor / IDE
 .vscode/

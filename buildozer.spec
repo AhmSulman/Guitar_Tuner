@@ -27,7 +27,7 @@ android.archs = arm64-v8a
 android.release_artifact = aab
 
 # Permissions
-android.permissions = RECORD_AUDIO, INTERNET
+android.permissions = RECORD_AUDIO
 
 # Microphone hardware requirement
 android.manifest.uses_feature = android.hardware.microphone
