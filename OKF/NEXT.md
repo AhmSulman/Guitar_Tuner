@@ -10,9 +10,11 @@
 4. Tag and submit.
 
 ## Then (see the approved plan for detail)
-- **Phase 2:** add `chroma()` + `detect_key()` to `pitch.py`, reusing the FFT `detect_pitch`
-  already computes. Krumhansl-Schmuckler against 24 profiles; weight by the active tuning as a
-  prior. Test standalone in Python — no MAUI build needed to validate the algorithm.
+- **Phase 2 — port, don't write.** `Roots_And_Weed/okf/audio_analysis.py` already
+  has this: `_chroma_from_magnitude` + `detect_key` (Krumhansl-Schmuckler, Pearson correlation,
+  with relative major/minor disambiguation). Pure numpy, no librosa, 38 tests passing, verified
+  2026-08-23 to name A Minor correctly against its relative C Major. Port it rather than
+  reimplementing; the remaining new work is weighting it by the active tuning as a prior.
 - **Phase 3:** bridge `pitch.py` into Octave_LiveWire_maui via pythonnet (Windows first).
   Ring buffer, no Python in the audio hot path. Then wire detected key → `BassBot`, which is
   currently hardcoded to E minor (`RootMidi = 40`).
