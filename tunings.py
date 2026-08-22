@@ -54,8 +54,25 @@ def get_string_freqs(tuning: str) -> list[float]:
     return [note_to_freq(n) for n in get_string_notes(tuning)]
 
 
+# Beyond this the pitch isn't meaningfully "at" any string of the tuning, and
+# snapping to the nearest one lies to the player: in Open C a perfectly in-tune
+# E2 sat 300 cents from G2 yet was reported as G2, 50 cents flat.
+MAX_STRING_CENTS = 150.0
+
+
+def tuning_prefers_flats(tuning: str) -> bool:
+    """True when this tuning is spelled with flats (e.g. Half Step Down)."""
+    # n[:-1] drops the octave digit; 'b' is the flat sign, 'B' is the note.
+    return any('b' in n[:-1] for n in get_string_notes(tuning))
+
+
 def find_closest_string(freq: float, tuning: str) -> tuple[int, float, float]:
-    """Return (string_idx 0-5, target_hz, signed_cents)."""
+    """Return (string_idx 0-5, target_hz, signed_cents).
+
+    string_idx is -1 when the pitch is silent or further than MAX_STRING_CENTS
+    from every string — callers must treat that as "not near any string" rather
+    than drawing a needle. Cents is returned unclipped; clamp it for display.
+    """
     if freq <= 0:
         return -1, 0.0, 0.0
     freqs = get_string_freqs(tuning)
@@ -64,6 +81,14 @@ def find_closest_string(freq: float, tuning: str) -> tuple[int, float, float]:
         dist = abs(1200.0 * np.log2(freq / f))
         if dist < best_dist:
             best_dist, best_idx = dist, i
+    if best_dist > MAX_STRING_CENTS:
+        return -1, 0.0, 0.0
     target = freqs[best_idx]
-    cents = float(np.clip(1200.0 * np.log2(freq / target), -100, 100))
-    return best_idx, target, cents
+    return best_idx, target, float(1200.0 * np.log2(freq / target))
+
+
+def cents_between(freq: float, target_hz: float) -> float:
+    """Signed cents from target_hz to freq. Unclipped."""
+    if freq <= 0 or target_hz <= 0:
+        return 0.0
+    return float(1200.0 * np.log2(freq / target_hz))
