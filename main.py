@@ -22,9 +22,11 @@ from collections import deque
 
 from pitch import detect_pitch, freq_to_note
 from tunings import (TUNINGS, TUNING_NAMES, get_string_notes,
-                     get_string_freqs, find_closest_string, STRING_COLORS)
+                     get_string_freqs, find_closest_string, STRING_COLORS,
+                     cents_between, tuning_prefers_flats)
 from gauge import TunerGauge
 from audio_input import AudioInput, SAMPLE_RATE
+import settings
 
 # ── Android ──────────────────────────────────────────────────────────────
 try:
@@ -219,6 +221,7 @@ class RootLayout(StyledBox):
         super().__init__(orientation='vertical', bg_color=BG_APP,
                          spacing=dp(1), **kw)
         self.app = app
+        self._applying = False      # guards apply_tuning <-> spinner re-entrancy
         self._build()
 
     def _build(self):
@@ -255,7 +258,7 @@ class RootLayout(StyledBox):
         row.add_widget(lbl)
 
         self.spinner = Spinner(
-            text='Standard',
+            text=self.app.current_tuning,
             values=TUNING_NAMES,
             size_hint=(1, 1),
             font_size=sp(13),
@@ -282,7 +285,7 @@ class RootLayout(StyledBox):
         grid = GridLayout(cols=6, spacing=dp(4), padding=dp(2))
         self.string_btns: list[StringButton] = []
 
-        notes = get_string_notes('Standard')
+        notes = get_string_notes(self.app.current_tuning)
         for i, note in enumerate(notes):
             btn = StringButton(i, note, size_hint=(1, 1))
             btn.bind(on_press=self._on_string_press)
@@ -314,14 +317,49 @@ class RootLayout(StyledBox):
 
     # ── Event handlers ────────────────────────────────────────────────────
 
+    @property
+    def selected_string(self) -> int:
+        return self._selected_string
+
+    def apply_tuning(self, tuning: str, selected: int = -1):
+        """The single entry point for tuning state.
+
+        app.current_tuning owns the tuning; the spinner text, the six button
+        labels and the lock selection are all derived from it here. Nothing else
+        should mutate them independently.
+        """
+        if tuning not in TUNINGS:
+            tuning = 'Standard'
+
+        self._applying = True           # stop the spinner bounce re-entering
+        try:
+            self.app.current_tuning = tuning
+            self.spinner.text = tuning
+
+            notes = get_string_notes(tuning)
+            if not 0 <= selected < len(self.string_btns):
+                selected = -1
+            for i, btn in enumerate(self.string_btns):
+                btn.note_name = notes[i]
+                btn.text      = notes[i]
+                btn.select(i == selected)
+            self._selected_string = selected
+
+            if selected >= 0:
+                self.status_lbl.text = (
+                    f'Locked to string {6 - selected}: {notes[selected]}'
+                )
+            else:
+                self.status_lbl.text = 'Tap a string to lock • Auto-detect active'
+            self.status_lbl.color = C_MUTED
+        finally:
+            self._applying = False
+
     def _on_tuning_change(self, spinner, tuning):
-        notes = get_string_notes(tuning)
-        for i, btn in enumerate(self.string_btns):
-            btn.note_name = notes[i]
-            btn.text      = notes[i]
-            btn.select(False)
-        self._selected_string = -1
-        self.app.current_tuning = tuning
+        if self._applying:
+            return                      # we set the spinner ourselves; not a user action
+        self.apply_tuning(tuning)       # changing tuning clears any lock
+        self.app.save_prefs()
 
     def _on_string_press(self, btn: StringButton):
         if btn.selected:
@@ -337,46 +375,58 @@ class RootLayout(StyledBox):
             self.status_lbl.text = (
                 f'Locked to string {6 - btn.idx}: {btn.note_name}'
             )
+        self.app.save_prefs()
 
     # ── Update from pitch processor (called on main thread) ───────────────
 
     def update_pitch(self, freq, conf, rms):
         """Receive processed pitch data and refresh all UI elements."""
         tuning = self.app.current_tuning
+        flats  = tuning_prefers_flats(tuning)
 
-        # Live bar — always updated
+        # Live bar — raw chromatic readout, spelled to match the tuning so it
+        # never disagrees with the string labels (Eb2 vs D#2).
         self.freq_bar.rms = rms
-        if freq and conf > 0.3:
-            note, cents, _ = freq_to_note(freq)
-            self.freq_bar.raw_freq = freq
-            self.freq_bar.raw_note = note or ''
-        else:
+        if not (freq and conf > 0.3):
             self.freq_bar.raw_freq = 0.0
             self.freq_bar.raw_note = ''
-
-        if not (freq and conf > 0.3):
-            self.gauge.confidence = 0.0
-            self.gauge.note_name  = '--'
-            self.gauge.frequency  = ''
+            self.gauge.confidence  = 0.0
+            self.gauge.note_name   = '--'
+            self.gauge.frequency   = ''
             self._deselect_all()
             return
 
+        chromatic, _, _ = freq_to_note(freq, prefer_flats=flats)
+        self.freq_bar.raw_freq = freq
+        self.freq_bar.raw_note = chromatic or ''
+
         # Which string are we targeting?
         if self._selected_string >= 0:
-            freqs = get_string_freqs(tuning)
-            target = freqs[self._selected_string]
-            cents  = float(np.clip(1200.0 * np.log2(freq / target), -100, 100))
+            # Lock mode follows the chosen string however far off it is — that is
+            # exactly what it is for when retuning a string a long way.
             str_idx = self._selected_string
+            cents   = cents_between(freq, get_string_freqs(tuning)[str_idx])
         else:
-            str_idx, target, cents = find_closest_string(freq, tuning)
+            str_idx, _target, cents = find_closest_string(freq, tuning)
 
-        note_str, _, _ = freq_to_note(freq)
-
-        # Update gauge
-        self.gauge.note_name  = note_str or '--'
         self.gauge.frequency  = f'{freq:.2f} Hz'
-        self.gauge.cents      = float(np.clip(cents, -50, 50))
         self.gauge.confidence = conf
+
+        if str_idx < 0:
+            # Not near any string of this tuning. Say so, rather than snapping to
+            # the nearest one and inventing a cents value for it.
+            self.gauge.note_name = chromatic or '--'
+            self.gauge.cents     = 0.0
+            for btn in self.string_btns:
+                btn.select(False)
+            self.status_lbl.text  = f'{chromatic} — not near any {tuning} string'
+            self.status_lbl.color = C_MUTED
+            return
+
+        # The note name comes from the tuning itself, so the name shown and the
+        # cents shown always share one reference point.
+        self.gauge.note_name = get_string_notes(tuning)[str_idx]
+        self.gauge.cents     = float(np.clip(cents, -50, 50))
 
         # Highlight active string button
         for i, btn in enumerate(self.string_btns):
@@ -387,20 +437,24 @@ class RootLayout(StyledBox):
         # Status label
         ac = abs(cents)
         if ac < 3:
-            self.status_lbl.text = 'In Tune ✓'
+            self.status_lbl.text  = 'In Tune ✓'
             self.status_lbl.color = C_GREEN
-        elif ac < 15:
-            self.status_lbl.color = (0.93, 0.88, 0.10, 1)
-            self.status_lbl.text  = f'{"Flat" if cents < 0 else "Sharp"} — {abs(cents):.1f}¢'
         else:
-            self.status_lbl.color = C_RED
-            self.status_lbl.text  = f'{"Flat" if cents < 0 else "Sharp"} — {abs(cents):.1f}¢'
+            self.status_lbl.color = (0.93, 0.88, 0.10, 1) if ac < 15 else C_RED
+            self.status_lbl.text  = f'{"Flat" if cents < 0 else "Sharp"} — {ac:.1f}¢'
 
     def _deselect_all(self):
-        if self._selected_string < 0:
+        if self._selected_string >= 0:
+            # A lock survives silence — don't claim auto-detect is active.
+            notes = get_string_notes(self.app.current_tuning)
+            self.status_lbl.text = (
+                f'Locked to string {6 - self._selected_string}: '
+                f'{notes[self._selected_string]}'
+            )
+        else:
             for btn in self.string_btns:
                 btn.select(False)
-        self.status_lbl.text  = 'Tap a string to lock • Auto-detect active'
+            self.status_lbl.text = 'Tap a string to lock • Auto-detect active'
         self.status_lbl.color = C_MUTED
 
 
@@ -414,30 +468,55 @@ class GuitarTunerApp(App):
         self._audio      = None
         self._freq_hist  = deque(maxlen=FREQ_HISTORY)
         self._last_rms   = 0.0
+        self._shutting_down = False
+        self._start_ev   = None     # pending Clock event for _start_audio
 
     # ── App lifecycle ─────────────────────────────────────────────────────
 
     def build(self):
         Window.clearcolor = BG_APP
+
+        # Restore before the UI is built so the string row and spinner come up
+        # on the saved tuning rather than flashing Standard first.
+        prefs = settings.bump_launch()
+        if prefs.get('tuning') in TUNINGS:
+            self.current_tuning = prefs['tuning']
+
         self._root = RootLayout(app=self)
+        self._root.apply_tuning(self.current_tuning,
+                                selected=prefs.get('selected_string', -1))
         return self._root
+
+    def save_prefs(self):
+        settings.save(tuning=self.current_tuning,
+                      selected_string=self._root.selected_string)
 
     def on_start(self):
         if IS_ANDROID:
             request_permissions([Permission.RECORD_AUDIO],
                                 callback=self._on_permission)
         else:
-            Clock.schedule_once(self._start_audio, 0.4)
+            self._start_ev = Clock.schedule_once(self._start_audio, 0.4)
 
     def on_stop(self):
+        # A close can land inside the start delay. Cancel the pending start first,
+        # or audio spins up against a torn-down root and is never stopped.
+        self._shutting_down = True
+        self.save_prefs()
+        if self._start_ev is not None:
+            self._start_ev.cancel()
+            self._start_ev = None
         if self._audio:
             self._audio.stop()
+            self._audio = None
 
     # ── Android permission callback ───────────────────────────────────────
 
     def _on_permission(self, perms, grants):
+        if self._shutting_down:
+            return
         if grants and all(grants):
-            Clock.schedule_once(self._start_audio, 0.2)
+            self._start_ev = Clock.schedule_once(self._start_audio, 0.2)
         else:
             self._root.mic_widget.set_info('Permission denied', error=True)
             self._root.status_lbl.text  = 'Microphone permission denied — restart and allow access'
@@ -446,6 +525,9 @@ class GuitarTunerApp(App):
     # ── Audio pipeline ────────────────────────────────────────────────────
 
     def _start_audio(self, dt):
+        self._start_ev = None
+        if self._shutting_down:
+            return
         self._audio = AudioInput(on_audio_ready=self._on_raw_audio)
         ok = self._audio.start()
         if not ok:
@@ -472,8 +554,16 @@ class GuitarTunerApp(App):
             self._root.status_lbl.text  = f'{name[:32]}  {sr} Hz'
             self._root.status_lbl.color = C_MUTED
 
+    def _push_ui(self, freq, conf, rms):
+        """Main thread. Re-checks shutdown: the event may have been queued before."""
+        if self._shutting_down:
+            return
+        self._root.update_pitch(freq, conf, rms)
+
     def _on_raw_audio(self, samples: 'np.ndarray'):
         """Called from the audio thread — compute pitch then schedule UI update."""
+        if self._shutting_down:
+            return
         rms  = float(np.sqrt(np.mean(samples ** 2)))
         freq, conf = detect_pitch(samples, SAMPLE_RATE)
 
@@ -485,9 +575,7 @@ class GuitarTunerApp(App):
             smoothed = None
 
         self._last_rms = rms
-        Clock.schedule_once(
-            lambda dt: self._root.update_pitch(smoothed, conf, rms), 0
-        )
+        Clock.schedule_once(lambda dt: self._push_ui(smoothed, conf, rms), 0)
 
 
 # ──────────────────────────────────────────────────────────────────────────

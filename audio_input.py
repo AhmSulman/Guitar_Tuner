@@ -69,14 +69,20 @@ class _SounddeviceInput:
             return False
 
     def stop(self):
+        # Idempotent — on_stop may fire after an explicit stop().
+        if self._stream is None:
+            self.running = False
+            return
+
+        # Clear running first: _callback checks it and bails, so a callback that
+        # is already in flight cannot schedule work against a dying UI.
         self.running = False
-        if self._stream is not None:
-            try:
-                self._stream.stop()
-                self._stream.close()
-            except Exception:
-                pass
-            self._stream = None
+        stream, self._stream = self._stream, None
+        try:
+            stream.stop()
+            stream.close()
+        except Exception:
+            pass
 
     def get_rms(self) -> float:
         with self._lock:
@@ -85,6 +91,8 @@ class _SounddeviceInput:
             return float(np.sqrt(np.mean(self._buffer[-1].astype(np.float64) ** 2)))
 
     def _callback(self, indata, _frames, _time_info, _status):
+        if not self.running:
+            return                      # torn down mid-callback — drop this buffer
         samples = indata[:, 0].copy()
         if self.actual_rate != SAMPLE_RATE:
             samples = _resample(samples, self.actual_rate, SAMPLE_RATE)
@@ -177,18 +185,35 @@ class _AndroidAudioInput:
             return False
 
     def stop(self):
+        # Idempotent — on_stop may fire after an explicit stop().
+        if self._recorder is None and self._thread is None:
+            return
+
         self.running = False
         self._stop_event.set()
-        if self._recorder is not None:
+
+        # Order is load-bearing. stop() unblocks a pending read() but leaves the
+        # native object alive; release() frees it. Releasing while _record_loop is
+        # still inside read() is a use-after-free — SIGSEGV, no Python traceback.
+        recorder = self._recorder
+        if recorder is not None:
             try:
-                self._recorder.stop()
-                self._recorder.release()
+                recorder.stop()
             except Exception:
                 pass
-            self._recorder = None
-        if self._thread is not None:
-            self._thread.join(timeout=2.0)
-            self._thread = None
+
+        # Wait for _record_loop to actually leave read() before freeing anything.
+        thread, self._thread = self._thread, None
+        if thread is not None:
+            thread.join(timeout=2.0)
+
+        # Safe now: no other thread holds a reference into the native recorder.
+        self._recorder = None
+        if recorder is not None:
+            try:
+                recorder.release()
+            except Exception:
+                pass
 
     def get_rms(self) -> float:
         with self._lock:

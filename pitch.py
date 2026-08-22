@@ -1,11 +1,13 @@
 """YIN pitch detection with FFT-accelerated difference function."""
 import numpy as np
 
-MIN_FREQ = 50.0     # Hz  (below low E string 82 Hz)
+MIN_FREQ = 35.0     # Hz  low enough to track a slack C2 (65.4 Hz) on the way up;
+                    # at 50 Hz the app went blind mid-retune into Drop C / Open C
 MAX_FREQ = 1400.0   # Hz  (covers high harmonics up to fret 24 on E4)
 THRESHOLD = 0.20    # YIN threshold — lower = stricter detection
 
-NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+NOTE_NAMES      = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+NOTE_NAMES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
 
 
 def detect_pitch(samples: np.ndarray,
@@ -77,10 +79,13 @@ def detect_pitch(samples: np.ndarray,
     return float(sample_rate / tau_precise), conf
 
 
-def freq_to_note(freq) -> tuple:
+def freq_to_note(freq, prefer_flats: bool = False) -> tuple:
     """
     Convert Hz to (note_str, cents_offset, midi_number).
     e.g. 329.63 Hz → ('E4', +0.2, 64)
+
+    prefer_flats picks Db/Eb/Gb/Ab/Bb over C#/D#/F#/G#/A#, so the chromatic
+    readout matches flat-spelled tunings like Half Step Down.
     """
     if freq is None or freq <= 0:
         return None, 0.0, 0
@@ -89,6 +94,7 @@ def freq_to_note(freq) -> tuple:
     midi_round = int(round(midi_exact))
     cents = (midi_exact - midi_round) * 100.0
 
-    name = NOTE_NAMES[midi_round % 12]
+    names = NOTE_NAMES_FLAT if prefer_flats else NOTE_NAMES
+    name = names[midi_round % 12]
     octave = midi_round // 12 - 1
     return f"{name}{octave}", float(cents), midi_round

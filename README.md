@@ -13,9 +13,16 @@ pip install -r requirements.txt
 python main.py
 ```
 
-> **Microphone input** — uses `plyer` for recording on Windows and Android.
->
-> `requirements.txt` now includes `plyer` instead of `pyaudio`.
+> **Microphone input** — `sounddevice` on Windows/macOS/Linux, `android.media.AudioRecord`
+> via jnius on Android. See `audio_input.py`.
+
+### Run the tests
+
+```bash
+python -m unittest test_tuner -v
+```
+
+Stdlib `unittest` only — no pytest needed.
 
 ### Microphone permission (Windows 10/11)
 

@@ -39,3 +39,9 @@ secrets.env
 info.txt
 .News
 News/
+# Audio assets — belong in Octave_LiveWire_maui, not in the tuner
+drum_kit/
+*.aif
+
+# Runtime cache — app cycle count + last tuning
+tuner_cache.json
