@@ -18,7 +18,11 @@ orientation = portrait
 fullscreen = 0
 
 # Android settings
-android.api = 35
+# API 36 (Android 16) — Google Play has required this for ALL new submissions and
+# updates since 2026-08-31. API 35 is rejected. p4a does not validate the upper
+# bound (MIN_TARGET_API = 30; nothing checks above RECOMMENDED_TARGET_API), so a
+# target above its recommendation builds fine as long as the SDK platform resolves.
+android.api = 36
 android.minapi = 26
 android.ndk = 25c
 android.archs = arm64-v8a
