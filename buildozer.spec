@@ -36,15 +36,22 @@ android.permissions = RECORD_AUDIO
 # Microphone hardware requirement
 android.manifest.uses_feature = android.hardware.microphone
 
-# Launcher + store icon. icon.png is the 512x512 opaque derivative of
-# Guitar_Tuner_AppIcon.png (the design master, kept for regeneration).
-# 512 square, no transparency, 380 KB — Play caps the store icon at 1024 KB
-# and has rendered icons with a 30% corner radius since 2026-03-31, so the
-# art sits at 88% on an opaque ground rather than running to the edge.
-android.icon.filename = icon.png
+# Launcher icon. NOTE the option name: buildozer reads `icon.filename`, NOT
+# `android.icon.filename` — the android.* form is silently ignored and you ship
+# p4a's default Kivy logo instead. Verified by extracting base/res/mipmap/icon.png
+# from a built AAB; check it there rather than trusting the build to be green.
+icon.filename = icon.png
+
+# Adaptive icon (API 26+). android.minapi is 26, so EVERY target device uses
+# these two layers and the legacy icon above is effectively a fallback that
+# never fires. Foreground is the badge at 66% on transparency — adaptive icons
+# are a 108dp canvas with only the centre 66dp guaranteed visible, so art any
+# larger gets clipped by the launcher's circle or squircle mask.
+icon.adaptive_foreground.filename = icon_fg.png
+icon.adaptive_background.filename = icon_bg.png
 
 # Optional: add when you have one
-# android.presplash.filename = presplash.png
+# presplash.filename = presplash.png
 
 # Gradle & Activity
 android.activity_class_name = org.kivy.android.PythonActivity
