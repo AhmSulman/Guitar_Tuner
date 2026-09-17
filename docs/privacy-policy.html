@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Guitar Tuner</title>
+<style>
+  :root { --ink:#1a1a1f; --soft:#4a4852; --faint:#77747f; --rule:#e2dfdb; --bg:#fbfaf8; --card:#fff; --accent:#7c30e0; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink:#eceaef; --soft:#a8a4b0; --faint:#77747f; --rule:#2d2b33; --bg:#141417; --card:#1c1c21; --accent:#a06bf0; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:0 16px; background:var(--bg); color:var(--ink);
+         font:16px/1.65 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:48px 0 80px; }
+  h1 { font-size:1.9rem; line-height:1.15; margin:0 0 .3rem; letter-spacing:-.02em; }
+  h2 { font-size:1.12rem; margin:2.4rem 0 .6rem; letter-spacing:-.01em; }
+  p, li { color:var(--soft); }
+  p { margin:0 0 1rem; }
+  ul { padding-left:1.2rem; }
+  li { margin-bottom:.4rem; }
+  .meta { color:var(--faint); font-size:.9rem; margin-bottom:2rem; }
+  .summary { background:var(--card); border:1px solid var(--rule); border-left:3px solid var(--accent);
+             border-radius:4px; padding:1.1rem 1.3rem; margin:0 0 2.2rem; }
+  .summary p { margin:0; color:var(--ink); }
+  code { font-family:ui-monospace, Consolas, monospace; font-size:.88em;
+         background:var(--card); border:1px solid var(--rule); padding:.08em .35em; border-radius:3px; }
+  a { color:var(--accent); }
+  table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.94rem; }
+  th, td { text-align:left; padding:.5rem .8rem .5rem 0; border-bottom:1px solid var(--rule); color:var(--soft); }
+  th { color:var(--faint); font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; }
+  footer { margin-top:3rem; padding-top:1.2rem; border-top:1px solid var(--rule);
+           color:var(--faint); font-size:.88rem; }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>Privacy Policy</h1>
+  <p class="meta">Guitar Tuner &nbsp;·&nbsp; <code>com.ahmedsalman.guitartuner</code> &nbsp;·&nbsp; Effective 17 September 2026</p>
+
+  <div class="summary">
+    <p><strong>Guitar Tuner collects no data.</strong> It has no user accounts, no analytics, no advertising, and no network access of any kind. Nothing you play is recorded, stored, or sent anywhere.</p>
+  </div>
+
+  <h2>Who this covers</h2>
+  <p>This policy applies to the Guitar Tuner application for Android and Windows, published by Ahmed Salman ("we", "us"). It describes how the app handles information — which is, in short, that it does not handle any.</p>
+
+  <h2>The microphone</h2>
+  <p>Guitar Tuner needs microphone access to do the one thing it does: hear the note you play and tell you whether it is in tune. On Android this is the <code>RECORD_AUDIO</code> permission, which you are asked to grant when you first open the app.</p>
+  <p>Audio from your microphone is analysed as it arrives and then discarded. Specifically:</p>
+  <ul>
+    <li>Audio is held briefly in memory, in fractions of a second, only long enough to estimate the pitch.</li>
+    <li>It is <strong>never written to storage</strong>. The app contains no code that saves audio to a file.</li>
+    <li>It is <strong>never transmitted</strong>. See below.</li>
+    <li>No speech recognition, no voice identification, no listening in the background. The microphone is only active while the app is open and running.</li>
+  </ul>
+  <p>You can revoke microphone access at any time in your device settings. The app will stop detecting pitch, which is the whole of its function, but it will not otherwise misbehave.</p>
+
+  <h2>No network access</h2>
+  <p>This is worth stating precisely, because it is stronger than a promise. The Android build <strong>does not declare the <code>INTERNET</code> permission</strong>. An Android app without that permission is blocked from opening network connections by the operating system itself — not by our code, and not by our good intentions. The app could not transmit your data even if it tried to.</p>
+  <p>No module in the app imports any networking library. The app makes no requests to any server, including ours. There is no server.</p>
+
+  <h2>What is stored on your device</h2>
+  <p>The app keeps one small file, <code>tuner_cache.json</code>, so that it opens the way you left it. It contains exactly four values:</p>
+  <table>
+    <tr><th>Value</th><th>Example</th><th>Why</th></tr>
+    <tr><td><code>tuning</code></td><td>"Drop C"</td><td>Reopen on the tuning you last used</td></tr>
+    <tr><td><code>selected_string</code></td><td>2</td><td>Remember a locked string</td></tr>
+    <tr><td><code>launches</code></td><td>7</td><td>A count of times the app has been opened</td></tr>
+    <tr><td><code>last_opened</code></td><td>2026-09-17T10:42:45+00:00</td><td>When it was last opened</td></tr>
+  </table>
+  <p>This file never leaves your device. It contains no name, no identifier, no location, and nothing that could identify you or your device. It is not readable by us or by anyone else. Deleting or uninstalling the app removes it.</p>
+
+  <h2>No third parties</h2>
+  <p>Guitar Tuner includes no advertising networks, no analytics or crash-reporting services, and no social or tracking SDKs. Its only runtime components are the Kivy framework and the NumPy numerical library, both of which run entirely on your device and neither of which is given any data by this app.</p>
+  <p>Because there is no data and no network, there is nothing to sell, share, or disclose — to advertisers, data brokers, or anyone else. We do not and will not do so.</p>
+
+  <h2>Children</h2>
+  <p>Guitar Tuner is a general-audience utility and is not directed at children. Because it collects no data from anyone, it collects no data from children either.</p>
+
+  <h2>Your rights</h2>
+  <p>Privacy laws such as the GDPR (Europe and the UK) and the CCPA/CPRA (California) give you rights to access, correct, export, and delete personal data a company holds about you. We hold none. There is no account to close, no profile to export, and no record of you in any system of ours.</p>
+  <p>The only data associated with this app is the small file on your own device, which is entirely within your control and which uninstalling the app removes.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If a future version of the app introduces anything that collects data — analytics, advertising, or any online feature — this policy will be updated <em>before</em> that version is released, the effective date above will change, and the corresponding Data safety declaration on Google Play will be updated to match. Material changes will be noted in the app's release notes.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy: <a href="mailto:ahmed.salman.gui@gmail.com">ahmed.salman.gui@gmail.com</a></p>
+
+  <footer>
+    Guitar Tuner is open source. Every claim on this page can be checked against the source at
+    <a href="https://github.com/AhmSulman/Guitar_Tuner">github.com/AhmSulman/Guitar_Tuner</a> —
+    including the absence of the <code>INTERNET</code> permission in <code>buildozer.spec</code>.
+  </footer>
+
+</main>
+</body>
+</html>
