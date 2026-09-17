@@ -36,8 +36,14 @@ android.permissions = RECORD_AUDIO
 # Microphone hardware requirement
 android.manifest.uses_feature = android.hardware.microphone
 
-# Optional: Add these later when you have the files
-# android.icon.filename = icon.png
+# Launcher + store icon. icon.png is the 512x512 opaque derivative of
+# Guitar_Tuner_AppIcon.png (the design master, kept for regeneration).
+# 512 square, no transparency, 380 KB — Play caps the store icon at 1024 KB
+# and has rendered icons with a 30% corner radius since 2026-03-31, so the
+# art sits at 88% on an opaque ground rather than running to the edge.
+android.icon.filename = icon.png
+
+# Optional: add when you have one
 # android.presplash.filename = presplash.png
 
 # Gradle & Activity
