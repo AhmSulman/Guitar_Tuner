@@ -18,7 +18,11 @@ orientation = portrait
 fullscreen = 0
 
 # Android settings
-android.api = 35
+# API 36 (Android 16) — Google Play has required this for ALL new submissions and
+# updates since 2026-08-31. API 35 is rejected. p4a does not validate the upper
+# bound (MIN_TARGET_API = 30; nothing checks above RECOMMENDED_TARGET_API), so a
+# target above its recommendation builds fine as long as the SDK platform resolves.
+android.api = 36
 android.minapi = 26
 android.ndk = 25c
 android.archs = arm64-v8a
@@ -32,8 +36,14 @@ android.permissions = RECORD_AUDIO
 # Microphone hardware requirement
 android.manifest.uses_feature = android.hardware.microphone
 
-# Optional: Add these later when you have the files
-# android.icon.filename = icon.png
+# Launcher + store icon. icon.png is the 512x512 opaque derivative of
+# Guitar_Tuner_AppIcon.png (the design master, kept for regeneration).
+# 512 square, no transparency, 380 KB — Play caps the store icon at 1024 KB
+# and has rendered icons with a 30% corner radius since 2026-03-31, so the
+# art sits at 88% on an opaque ground rather than running to the edge.
+android.icon.filename = icon.png
+
+# Optional: add when you have one
 # android.presplash.filename = presplash.png
 
 # Gradle & Activity
