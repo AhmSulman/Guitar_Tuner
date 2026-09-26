@@ -33,6 +33,19 @@ def _polar(cx, cy, r, angle_deg):
     return cx + r * math.cos(a), cy + r * math.sin(a)
 
 
+def _kivy_arc(start_deg, end_deg):
+    """Convert a math-convention arc to Kivy's ellipse angles.
+
+    Everything else here uses the standard convention _polar expects:
+    0 deg = east, increasing counter-clockwise. Kivy's Line(ellipse=...)
+    instead measures 0 deg = north, increasing CLOCKWISE. Passing math
+    angles straight through rotates the coloured bands about 90 deg away
+    from the needle, so the in-tune zone rendered at 3 o'clock while the
+    needle pointed up. Direction reverses too, hence the swap.
+    """
+    return 90.0 - end_deg, 90.0 - start_deg
+
+
 # Coloured arc bands: (start_deg, end_deg, rgba)
 _ARC_BANDS = [
     (-30,  30, C_RED),      # far sharp
@@ -88,26 +101,31 @@ class TunerGauge(Widget):
     def _draw(self):
         w, h = self.width, self.height
         cx = self.x + w / 2
-        cy = self.y + h * 0.30          # pivot sits in lower 30% of widget
         r  = min(w * 0.40, h * 0.60, dp(175))
+        # The drawn arc spans cy - 0.5r (the -30/210 tips) up to cy + r, so its
+        # visual height is 1.5r. Centre THAT, not the pivot — pinning the pivot
+        # at 30% of the widget left most of a tall phone screen empty above it.
+        cy = self.y + h / 2 - r * 0.25
         arc_w = max(dp(6), r * 0.09)
 
         with self.canvas:
             # ── Coloured arc bands ────────────────────────────────────
             for start, end, col in _ARC_BANDS:
+                k0, k1 = _kivy_arc(start, end)
                 Color(*col[:3], 0.82)
-                Line(ellipse=(cx - r, cy - r, r * 2, r * 2, start, end),
+                Line(ellipse=(cx - r, cy - r, r * 2, r * 2, k0, k1),
                      width=arc_w, cap='none')
 
             # Outer and inner rims
+            rim0, rim1 = _kivy_arc(-30, 210)
             Color(0.26, 0.26, 0.30, 1)
             Line(ellipse=(cx - r - arc_w / 2, cy - r - arc_w / 2,
                           (r + arc_w / 2) * 2, (r + arc_w / 2) * 2,
-                          -30, 210), width=dp(1))
+                          rim0, rim1), width=dp(1))
             Color(0.14, 0.14, 0.17, 1)
             Line(ellipse=(cx - r + arc_w / 2, cy - r + arc_w / 2,
                           (r - arc_w / 2) * 2, (r - arc_w / 2) * 2,
-                          -30, 210), width=dp(1))
+                          rim0, rim1), width=dp(1))
 
             # ── Tick marks ────────────────────────────────────────────
             for tc in range(-50, 51, 10):
