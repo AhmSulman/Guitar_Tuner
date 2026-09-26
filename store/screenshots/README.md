@@ -43,17 +43,17 @@ needle, and must be retaken.
 
 | File | Shows |
 |---|---|
-| `01-in-tune.png` | G2 locked, green needle straight up, IN TUNE |
-| `02-nearly-there.png` | C3 at +9.1c, yellow — the "keep going" state |
-| `03-out-of-tune.png` | C2 at +20.9c, orange, low string in Drop C |
-| `04-twelve-tunings.png` | Spinner open, all 12 tunings visible |
+| `01-in-tune.png` | G2, green needle straight up, IN TUNE |
+| `02-flat.png` | C2 at -30.9c, red needle swung left |
+| `03-sharp.png` | C2 at +20.9c, orange needle swung right |
+| `04-nearly-there.png` | C3 at +9.1c, yellow, closing in |
+| `05-twelve-tunings.png` | Spinner open, all 12 tunings |
 
 All 1080x2160, exactly 2:1, RGB with no alpha.
 
-**Known gap:** every shot is sharp (+). Nothing demonstrates the flat side, so the
-left half of the gauge never appears working. Worth one capture with a string tuned
-*down* past pitch if the set is ever revisited. Four is a legitimate listing; Play
-allows two to eight.
+Ordered so the first shot is the payoff, then both directions of error, then the
+tuning list. The flat and sharp pair matters: with only sharp captures the left
+half of the gauge never appeared working.
 
 Captured after the v1.0.1 gauge fix, so the colour bands line up with the needle.
 Anything from before that shows them rotated 90 degrees apart.
