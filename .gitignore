@@ -45,3 +45,6 @@ drum_kit/
 
 # Runtime cache — app cycle count + last tuning
 tuner_cache.json
+
+# Scratch device captures. Keep finished store screenshots in store/screenshots/
+shot*.png
