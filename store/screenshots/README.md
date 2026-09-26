@@ -16,10 +16,16 @@ repo root are gitignored.
 A Pixel captures at 1080×2424, which is **2.24:1 and will be rejected**. Cropping the
 status bar and gesture bar fixes the ratio and looks better anyway — 1080×2160 is exactly 2:1.
 
+ImageMagick is not installed here, so use the bundled script — it uses Pillow, which is
+already a project dependency, and it validates every Play constraint as it goes.
+
 ```bash
 adb exec-out screencap -p > shot1.png
-magick shot1.png -gravity north -chop 0x120 -gravity south -chop 0x144 store/screenshots/01-gauge.png
+python store/crop_shots.py shot1.png shot2.png shot3.png shot4.png
 ```
+
+It always lands on exactly 2:1 whatever you pass; `--top` and `--bottom` only shift
+*which* rows get dropped. It also flattens alpha, since Play rejects it.
 
 ## What to shoot
 
