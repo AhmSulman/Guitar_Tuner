@@ -13,6 +13,7 @@ always lands on exactly 2:1 regardless, by absorbing the remainder at the bottom
 from __future__ import annotations
 
 import argparse
+import glob
 import os
 import sys
 
@@ -24,7 +25,7 @@ MIN_SIDE, MAX_SIDE = 320, 3840
 MAX_BYTES = 8 * 1024 * 1024
 
 
-def crop_one(path: str, top: int, bottom: int, index: int) -> str:
+def crop_one(path: str, top: int, bottom: int, index: int, slug: str | None = None) -> str:
     im = Image.open(path)
     # Play rejects alpha; flatten onto black rather than letting it ride
     if im.mode in ('RGBA', 'LA', 'P'):
@@ -49,7 +50,8 @@ def crop_one(path: str, top: int, bottom: int, index: int) -> str:
             box_bottom = want_bottom
             box_top = box_bottom - keep
 
-    out_name = f'{index:02d}-{os.path.splitext(os.path.basename(path))[0]}.png'
+    stem = slug or os.path.splitext(os.path.basename(path))[0]
+    out_name = f'{index:02d}-{stem}.png'
     out = os.path.join(OUT_DIR, out_name)
     os.makedirs(OUT_DIR, exist_ok=True)
     cropped = im.crop((0, box_top, w, box_bottom))
@@ -81,6 +83,10 @@ def main() -> int:
                     help='rows to drop from the top, the status bar (default 150)')
     ap.add_argument('--bottom', type=int, default=114,
                     help='rows to drop from the bottom, the gesture bar (default 114)')
+    ap.add_argument('--name', action='append', default=None,
+                    help='output slug per input, repeatable; falls back to the input name')
+    ap.add_argument('--start', type=int, default=None,
+                    help='first index; default continues past what is already in the dir')
     args = ap.parse_args()
 
     missing = [f for f in args.files if not os.path.exists(f)]
@@ -88,10 +94,25 @@ def main() -> int:
         print('not found: ' + ', '.join(missing), file=sys.stderr)
         return 1
 
+    # Numbering used to restart at 1 every run, so a second invocation
+    # overwrote nothing but collided: 01-shot1.png beside 01-shot5.png.
+    if args.start is not None:
+        start = args.start
+    else:
+        existing = [os.path.basename(f)[:2] for f in glob.glob(os.path.join(OUT_DIR, '*.png'))]
+        used = [int(x) for x in existing if x.isdigit()]
+        start = max(used) + 1 if used else 1
+
+    names = args.name or []
+    if names and len(names) != len(args.files):
+        print(f'--name given {len(names)} times for {len(args.files)} files', file=sys.stderr)
+        return 1
+
     print(f'{"file":<16} {"in":<10}    {"out":<10} {"ratio":<9} {"size":<10} verdict')
     print('-' * 78)
-    for i, f in enumerate(args.files, start=1):
-        crop_one(f, args.top, args.bottom, i)
+    for i, f in enumerate(args.files):
+        slug = names[i] if names else None
+        crop_one(f, args.top, args.bottom, start + i, slug)
     print(f'\nwritten to {OUT_DIR}')
     return 0
 
