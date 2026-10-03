@@ -48,3 +48,6 @@ tuner_cache.json
 
 # Scratch device captures. Keep finished store screenshots in store/screenshots/
 shot*.png
+
+# Staging copies for Play Console. Sources live in store/, docs/ and bin/.
+upload/
