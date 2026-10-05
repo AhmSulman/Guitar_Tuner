@@ -51,3 +51,8 @@ shot*.png
 
 # Staging copies for Play Console. Sources live in store/, docs/ and bin/.
 upload/
+
+# Tester roster — real people's email addresses. This repo is PUBLIC.
+private/
+mails.toon
+_ma.txt
