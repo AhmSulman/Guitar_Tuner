@@ -11,7 +11,7 @@ source.include_exts = py,png,jpg,kv,atlas,ttf,wav
 version = 1.0.1
 
 # Dependencies
-requirements = python3,kivy==2.3.0,numpy
+requirements = python3,kivy==2.3.1,numpy
 
 # Orientation
 orientation = portrait
@@ -24,7 +24,14 @@ fullscreen = 0
 # target above its recommendation builds fine as long as the SDK platform resolves.
 android.api = 36
 android.minapi = 26
-android.ndk = 25c
+# NDK 28b: 16 KB page alignment is the DEFAULT from r28 onward. Google Play has
+# required 16 KB support for anything targeting Android 15+ since 2025-11-01, and
+# we target 36 — so this is a hard blocker, not a warning. Under NDK 25c every
+# .so came out p_align=4096; the requirement is 16384.
+# p4a v2024.01.21 declares MAX_NDK_VERSION = 25 but only *warns* above it, so a
+# newer NDK is accepted. Whether every recipe still compiles is what the build
+# proves.
+android.ndk = 28c
 android.archs = arm64-v8a
 
 # Google Play requires signed .aab (not .apk) for release submissions
@@ -56,9 +63,17 @@ icon.adaptive_background.filename = icon_bg.png
 # Gradle & Activity
 android.activity_class_name = org.kivy.android.PythonActivity
 
-# Pin p4a to v2024.01.21 — uses Python 3.11.5, compatible with Kivy 2.3.0.
-# p4a master uses Python 3.14 which breaks Kivy 2.3.0's Cython C code.
-p4a.branch = v2024.01.21
+# p4a v2026.05.09 (the latest tagged release, not master) — required for the
+# 16 KB page-size work. The previous pin, v2024.01.21, bundles an SDL2 that calls
+# ALooper_pollAll, which NDK r28 turned into a hard error:
+#   SDL_androidsensor.c:164: error: 'ALooper_pollAll' is unavailable: obsoleted
+# So the NDK could not move without the pin moving too. This release recommends
+# NDK 28c, which is why the two are matched above.
+# The old pin's comment warned that p4a *master* ships Python 3.14 and breaks
+# Kivy 2.3.0's Cython. This is a tagged release rather than master, and Kivy is
+# bumped to 2.3.1 alongside — which also closes the long-standing gap where
+# requirements.txt tested 2.3.1 on desktop while Android shipped 2.3.0.
+p4a.branch = v2026.05.09
 
 # Accept SDK licenses (must be in [app] section — [buildozer] section is ignored)
 android.accept_sdk_license = True
