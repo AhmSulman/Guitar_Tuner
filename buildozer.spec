@@ -24,7 +24,14 @@ fullscreen = 0
 # target above its recommendation builds fine as long as the SDK platform resolves.
 android.api = 36
 android.minapi = 26
-android.ndk = 25c
+# NDK 28b: 16 KB page alignment is the DEFAULT from r28 onward. Google Play has
+# required 16 KB support for anything targeting Android 15+ since 2025-11-01, and
+# we target 36 — so this is a hard blocker, not a warning. Under NDK 25c every
+# .so came out p_align=4096; the requirement is 16384.
+# p4a v2024.01.21 declares MAX_NDK_VERSION = 25 but only *warns* above it, so a
+# newer NDK is accepted. Whether every recipe still compiles is what the build
+# proves.
+android.ndk = 28b
 android.archs = arm64-v8a
 
 # Google Play requires signed .aab (not .apk) for release submissions
