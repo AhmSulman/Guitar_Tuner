@@ -117,6 +117,12 @@ p4a.branch = v2024.01.21
 | Kivy | 2.3.1 (matches `requirements.txt` on desktop) |
 | numpy | 2.3.0 |
 | pyjnius | 1.7.0 |
+| chardet | **5.2.0, pinned.** p4a's Kivy recipe pulls in `requests` + `chardet`. Unpinned, pip picks 7.x, whose only wheels are mypyc-compiled, so the **x86-64 host** wheel ends up in the APK: 17 `.so` files that fail 16 KB and can't load on ARM |
+
+**Pure-Python only for anything pip installs.** p4a installs `python_depends` and
+non-recipe requirements with host pip. A package that ships only compiled wheels gets the
+*host* (x86-64) binary. The 16 KB check flags these by architecture, so pin to a
+pure-Python version or use a p4a recipe.
 
 **Why this stack?** Google Play requires 16 KB page-size support (every `.so` with
 `p_align >= 16384`) for apps targeting Android 15+, and we target API 36. NDK r28 is

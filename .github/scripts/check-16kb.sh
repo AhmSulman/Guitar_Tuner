@@ -72,6 +72,13 @@ while IFS= read -r so; do
   for a in $aligns; do
     [ $((a)) -ge 16384 ] || ok=0
   done
+  # A host-arch binary (pip installed an x86-64 wheel) can never load on the
+  # phone whatever its alignment, so name the architecture in the result.
+  machine="$(readelf -hW "$so" | awk -F: '/Machine:/{sub(/^ +/, "", $2); print $2}')"
+  if [ "$machine" != "AArch64" ]; then
+    ok=0
+    aligns="$aligns[$machine] "
+  fi
   if [ "$ok" -eq 1 ]; then
     printf 'PASS  %-24s %s\n' "$aligns" "$rel"
     echo "| ✅ PASS | \`$aligns\` | \`$rel\` |" >> "$SUMMARY"

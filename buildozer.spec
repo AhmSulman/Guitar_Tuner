@@ -17,7 +17,13 @@ source.exclude_patterns = Guitar_Tuner_AppIcon.png, test_*.py
 version = 1.0.1
 
 # Dependencies
-requirements = python3,kivy==2.3.1,numpy
+# chardet is pinned because p4a's Kivy recipe always pulls in requests + chardet
+# (python_depends). Unpinned, pip picks chardet 7.x, which ships only
+# mypyc-compiled wheels with no Android build, so it installs the x86-64 *host*
+# wheel: 17 x86 .so files in the APK that can never load on an ARM phone and
+# fail 16 KB alignment (p_align 0x1000). 5.2.0 is pure Python, and requests
+# itself only supports chardet >=3.0.2,<6.
+requirements = python3,kivy==2.3.1,numpy,chardet==5.2.0
 
 # Orientation
 orientation = portrait
