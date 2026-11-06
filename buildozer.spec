@@ -14,7 +14,7 @@ source.include_exts = py,png,jpg,kv,atlas,ttf,wav
 source.exclude_dirs = store, docs, OKF, bin, .github, private, upload
 source.exclude_patterns = Guitar_Tuner_AppIcon.png, test_*.py
 
-version = 1.0.1
+version = 1.0.2
 
 # Dependencies
 # chardet is pinned because p4a's Kivy recipe always pulls in requests + chardet
