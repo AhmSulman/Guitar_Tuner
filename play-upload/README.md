@@ -23,7 +23,7 @@ The script exits non-zero if anything breaks a Play limit. To change a listing, 
 ```
 play-upload/
 ├── README.md                  ← this checklist                         (committed)
-├── FINAL_PROMPT.md            ← paste to Claude after the tag run goes green (committed)
+├── FINAL_PROMPT.md            ← paste into Claude in Chrome to publish (committed)
 ├── declarations.md            ← answers for every App content form      (committed)
 ├── build/
 │   └── guitartuner-1.0.2-arm64-v8a-release.aab  ← GuitarTuner-AAB-signed artifact of the v1.0.2 tag run
@@ -48,9 +48,10 @@ play-upload/
 
 ## 1. Build
 
-How to get the bundle (you do this, in order):
-1. Merge **#14** (16 KB toolchain), then **#13** (version 1.0.2).
-2. Tag `v1.0.2` on main and push the tag. The `release` job builds the **signed** AAB and runs the 16 KB
+How to get the bundle:
+1. ~~Merge #14, then #13~~ **Done** (Nov 6): main `2b7351f` is 1.0.2 on p4a v2026.05.09 + NDK 28c,
+   and push-to-main run #63 passed every 16 KB and permission check.
+2. Tag `v1.0.2` on `2b7351f` and push the tag. The `release` job builds the **signed** AAB and runs the 16 KB
    and permission checks on it.
 3. Download the `GuitarTuner-AAB-signed` artifact, then run `python store/stage_play_upload.py --aab <file>`.
 
@@ -63,7 +64,9 @@ version 1.0.1 (102610001, a duplicate).
 - [ ] Signed with the **same upload key** as the Oct 6 bundle
 - [x] targetSdk **36**, which meets Play's current minimum
 - [ ] `RECORD_AUDIO` is the only dangerous permission. CI fails if `INTERNET` appears. `WAKE_LOCK` would only appear if `android.wakelock` were set (it isn't).
-- [x] 16 KB page size: all 12 `lib/` libraries pass and `zipalign -P 16` passes (PR #14 CI). The Python bundle check is pending the current run.
+- [x] 16 KB page size, on main run #63 (the unsigned 1.0.2 AAB): 138/138 `.so` AArch64 at 0x4000, including 65
+      Python extension modules from `libpybundle.so`. `zipalign -P 16` passes on the APK and all 10 split APKs.
+      Re-checked on the signed AAB by the tag run.
 
 ## 2. Store listing (Grow → Store presence → Main store listing)
 
@@ -97,7 +100,9 @@ All answers are in **`declarations.md`**.
 ## 4. Testing path to production (personal-account rules)
 
 - [ ] **Internal testing:** add the .aab, then the name `1.0.2`, the notes from `listing/release_notes.txt`, and your own email as a tester. Roll out.
-- [ ] **Closed testing:** pick countries, then get **≥ 12 testers opted in for 14 consecutive days**. The opt-in link goes into `store/tester-invite.md`.
+- [ ] **Closed testing:** pick countries, then get **≥ 12 testers opted in for 14 consecutive days**. The roster is
+      `private/testers.csv` (gitignored, 19 addresses, upload it as CSV, never commit it). Fill the opt-in link
+      into a copy of `store/tester-invite.md` kept in `private/`.
 - [ ] **Apply for production** and answer Google's questions about the closed test.
 
 ---
