@@ -42,6 +42,15 @@ while IFS= read -r t; do
   mkdir -p "$dest"
   echo "   unpacking $(realpath --relative-to="$WORK/pkg" "$t")"
   tar -xf "$t" -C "$dest"
+  # p4a writes directory entries with tarfile.TarInfo defaults (mode 0644, no x),
+  # so nothing can be traversed. Fix level by level: each pass makes the next
+  # depth of directories visible to find.
+  for _ in $(seq 64); do
+    [ -n "$(find "$dest" -type d ! -perm -u=rwx -print -quit 2>/dev/null)" ] || break
+    find "$dest" -type d ! -perm -u=rwx -exec chmod u+rwx {} + 2>/dev/null || true
+  done
+  chmod -R u+r "$dest"
+  echo "     $(find "$dest" -type f | wc -l) files, $(find "$dest" -type f -name '*.so*' | wc -l) .so"
 done < <(find "$WORK/pkg" -type f \( -name '*.tar' -o -name '*.tar.gz' -o -name '*.tgz' -o -name '*.so' \))
 
 {
@@ -71,7 +80,7 @@ while IFS= read -r so; do
     printf 'FAIL  %-24s %s\n' "$aligns" "$rel"
     echo "| ❌ FAIL | \`$aligns\` | \`$rel\` |" >> "$SUMMARY"
   fi
-done < <(find "$WORK/pkg" "$WORK"/tar_* -type f -name '*.so*' 2>/dev/null | sort)
+done < <(find "$WORK/pkg" $(compgen -G "$WORK/tar_*" || true) -type f -name '*.so*' | sort)
 
 echo "== ELF alignment: $((total - failed)) / $total pass ($pyext Python extension modules, from $tars_found archive(s) + zip)"
 echo >> "$SUMMARY"
