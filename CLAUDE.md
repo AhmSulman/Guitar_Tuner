@@ -23,8 +23,9 @@ semi-circular gauge with animated needle, median-filtered pitch smoothing, strin
 | `settings.py` | Plain-JSON cache at `tuner_cache.json` — last tuning, locked string, launch count |
 | `test_tuner.py` | Regression tests — `python -m unittest test_tuner` (stdlib only, no pytest) |
 | `requirements.txt` | Desktop deps: `kivy==2.3.1`, `numpy`, `sounddevice` |
-| `buildozer.spec` | Android APK config — API 34, arm64-v8a, p4a pin, permissions |
-| `.github/workflows/build-apk.yml` | CI: ubuntu-22.04, Python 3.10, buildozer — produces APK artifact |
+| `buildozer.spec` | Android APK config — API 36, arm64-v8a, NDK 28c, p4a pin, permissions |
+| `.github/workflows/build-apk.yml` | CI: ubuntu-22.04, Python 3.10, buildozer — debug APK + unsigned AAB on every push/PR, signed AAB on tags |
+| `.github/scripts/check-16kb.sh` | 16 KB page-size check: `p_align` of every `.so` + `zipalign -c -P 16` |
 
 ---
 
@@ -44,7 +45,8 @@ python main.py
 ## Building the Android APK
 
 The APK is built automatically by **GitHub Actions** on every push to `main`.
-Download the `GuitarTuner-APK` artifact from the Actions run (retained 30 days).
+Download the `GuitarTuner-APK` or `GuitarTuner-AAB-unsigned` artifact from the Actions
+run (retained 14 days).
 
 To build locally (Linux / WSL2 only — Buildozer does not run natively on Windows):
 
@@ -105,9 +107,48 @@ clones p4a fresh from GitHub at build time. The only way to pin the version is:
 p4a.branch = v2024.01.21
 ```
 
-**Why v2024.01.21?** This tag uses Python 3.11.5 + numpy 1.22.3 + pyjnius 1.6.1,
-all compatible with Kivy 2.3.0. p4a master (Python 3.14+) breaks Kivy 2.3.0's
-Cython C code (`_PyInterpreterState_GetConfig` API changed in Python 3.13+).
+**Current stack (`p4a.branch = v2026.05.09`, `android.ndk = 28c`):**
+
+| Component | Version |
+|---|---|
+| python-for-android | v2026.05.09 (a tagged release — never `master`) |
+| Android NDK | r28c (p4a's recommended version for this tag) |
+| Python (on device) | 3.14 |
+| Kivy | 2.3.1 (matches `requirements.txt` on desktop) |
+| numpy | 2.3.0 |
+| pyjnius | 1.7.0 |
+| chardet | **5.2.0, pinned.** p4a's Kivy recipe pulls in `requests` + `chardet`. Unpinned, pip picks 7.x, whose only wheels are mypyc-compiled, so the **x86-64 host** wheel ends up in the APK: 17 `.so` files that fail 16 KB and can't load on ARM |
+
+**Pure-Python only for anything pip installs.** p4a installs `python_depends` and
+non-recipe requirements with host pip. A package that ships only compiled wheels gets the
+*host* (x86-64) binary. The 16 KB check flags these by architecture, so pin to a
+pure-Python version or use a p4a recipe.
+
+**Why this stack?** Google Play requires 16 KB page-size support (every `.so` with
+`p_align >= 16384`) for apps targeting Android 15+, and we target API 36. NDK r28 is
+the first release where 16 KB alignment is the linker default. The NDK could not move
+alone: the previous pin, v2024.01.21, bundles an SDL2 that calls `ALooper_pollAll`,
+which NDK r28 made a hard error (`'ALooper_pollAll' is unavailable: obsoleted`). So the
+p4a pin had to move with it, and Kivy went to 2.3.1 to compile against Python 3.14.
+
+History: v2024.01.21 (Python 3.11.5, numpy 1.22.3, pyjnius 1.6.1, Kivy 2.3.0, NDK 25c)
+was pinned because p4a master's Python 3.13+ broke Kivy 2.3.0's Cython
+(`_PyInterpreterState_GetConfig`). It produced 4096-aligned libraries — 0 of 10 passed.
+
+**Moving the pin again?** Re-run the on-device smoke test, especially the
+`AudioRecord` `short[]` read path (it depends on pyjnius behaviour), and check the 16 KB
+CI step output — not just that the build is green.
+
+### CI rules
+
+- **Never upload secrets as workflow artifacts.** Artifacts on a public repo can be
+  downloaded by any signed-in GitHub user while they are retained. Secrets go into
+  GitHub Secrets and reach steps only through `env:` — never inlined into `run:` text.
+- **A green build is not proof — verify the artifact.** A build can succeed and still
+  ship a broken package. `.github/scripts/check-16kb.sh` inspects every `.so` in the APK
+  and the AAB (including the Python bundle in `assets/private.tar`) and runs
+  `zipalign -c -P 16`. PR CI builds the release AAB too, so the uploaded artifact type is
+  what gets tested.
 
 ### Android permissions
 
