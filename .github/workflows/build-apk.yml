@@ -10,8 +10,11 @@ on:
 
 jobs:
   build:
+    # Every push/PR builds BOTH the debug APK and an unsigned release AAB, and
+    # verifies 16 KB page alignment on each. The AAB is what goes to Play, so
+    # it has to be built and checked here, not only on tag pushes.
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    timeout-minutes: 150
 
     steps:
       - name: Checkout code
@@ -62,12 +65,31 @@ jobs:
       - name: Build APK
         run: yes | buildozer -v android debug
 
+      - name: Verify 16 KB page alignment (APK)
+        run: bash .github/scripts/check-16kb.sh bin/*.apk
+
+      # No P4A_RELEASE_* env here, so p4a produces an unsigned bundle. Recipes are
+      # already compiled by the debug build above; this only re-runs packaging.
+      - name: Build unsigned release AAB
+        run: yes | buildozer -v android release
+
+      - name: Verify 16 KB page alignment (AAB)
+        run: bash .github/scripts/check-16kb.sh "$(ls bin/*.aab | head -1)"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: GuitarTuner-APK
           path: bin/*.apk
-          retention-days: 30
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload unsigned AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GuitarTuner-AAB-unsigned
+          path: bin/*.aab
+          retention-days: 14
           if-no-files-found: error
 
   release:
@@ -157,10 +179,13 @@ jobs:
         if: always()
         run: rm -f "$HOME/release.keystore"
 
+      - name: Verify 16 KB page alignment (signed AAB)
+        run: bash .github/scripts/check-16kb.sh "$(ls bin/*.aab | head -1)"
+
       - name: Upload signed AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: GuitarTuner-AAB-signed
           path: bin/*.aab
-          retention-days: 30
+          retention-days: 14
           if-no-files-found: error
