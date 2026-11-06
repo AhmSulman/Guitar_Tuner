@@ -7,6 +7,12 @@ package.domain = com.ahmedsalman
 # Entry point
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf,wav
+# The app loads no images at runtime. Keep store art, docs and tests out of the
+# package (they were shipping inside assets/private.tar). icon*.png are read by
+# buildozer from the source tree at build time, so excluding the 3 MB master
+# icon is safe.
+source.exclude_dirs = store, docs, OKF, bin, .github, private, upload
+source.exclude_patterns = Guitar_Tuner_AppIcon.png, test_*.py
 
 version = 1.0.1
 

@@ -22,23 +22,27 @@ SDK="${ANDROID_SDK_ROOT:-$HOME/.buildozer/android/platform/android-sdk}"
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+# Tarred files can come out read-only; make them writable so cleanup can't fail the step.
+trap 'chmod -R u+w "$WORK" 2>/dev/null; rm -rf "$WORK" 2>/dev/null || true' EXIT
+
+is_elf() { [ "$(head -c4 "$1" | od -An -tx1 | tr -d ' \n')" = "7f454c46" ]; }
 
 echo "== Checking $PKG"
 unzip -q "$PKG" -d "$WORK/pkg"
 
-# Unpack every tar shipped in assets so the .so files inside get checked too.
+# Unpack every archive that can hold native code. p4a ships the Python bundle
+# (stdlib extension modules, numpy, Kivy) as lib/<arch>/libpybundle.so, which
+# is a TAR despite the name, and the app itself as assets/private.tar.
 tars_found=0
 while IFS= read -r t; do
+  case "$t" in *.so) ! is_elf "$t" || continue ;; esac
+  tar -tf "$t" >/dev/null 2>&1 || continue
   tars_found=$((tars_found + 1))
   dest="$WORK/tar_$tars_found"
   mkdir -p "$dest"
   echo "   unpacking $(realpath --relative-to="$WORK/pkg" "$t")"
   tar -xf "$t" -C "$dest"
-done < <(find "$WORK/pkg" -path '*assets*' -type f \( -name '*.tar' -o -name '*.tar.gz' -o -name '*.tgz' \))
-if [ "$tars_found" -eq 0 ]; then
-  echo "::warning::No tar found under assets/ in $PKG -- Python extension modules were not inspected"
-fi
+done < <(find "$WORK/pkg" -type f \( -name '*.tar' -o -name '*.tar.gz' -o -name '*.tgz' -o -name '*.so' \))
 
 {
   echo "### 16 KB check: \`$(basename "$PKG")\`"
@@ -47,11 +51,12 @@ fi
   echo "|---|---|---|"
 } >> "$SUMMARY"
 
-total=0; failed=0
+total=0; failed=0; pyext=0
 while IFS= read -r so; do
-  # ELF magic only; skip anything that merely has .so in its name.
-  [ "$(head -c4 "$so" | od -An -tx1 | tr -d ' \n')" = "7f454c46" ] || continue
+  # ELF only; archives named .so were unpacked above.
+  is_elf "$so" || continue
   total=$((total + 1))
+  case "$so" in *cpython-*.so) pyext=$((pyext + 1)) ;; esac
   rel="${so#"$WORK"/}"
   aligns="$(readelf -lW "$so" | awk '$1=="LOAD"{print $NF}' | sort -u | tr '\n' ' ')"
   ok=1
@@ -68,10 +73,12 @@ while IFS= read -r so; do
   fi
 done < <(find "$WORK/pkg" "$WORK"/tar_* -type f -name '*.so*' 2>/dev/null | sort)
 
-echo "== ELF alignment: $((total - failed)) / $total pass (from $tars_found tar(s) + zip)"
+echo "== ELF alignment: $((total - failed)) / $total pass ($pyext Python extension modules, from $tars_found archive(s) + zip)"
 echo >> "$SUMMARY"
-echo "**ELF alignment: $((total - failed)) / $total pass**" >> "$SUMMARY"
+echo "**ELF alignment: $((total - failed)) / $total pass** ($pyext Python extension modules)" >> "$SUMMARY"
 [ "$total" -gt 0 ] || { echo "::error::No ELF .so found in $PKG"; exit 1; }
+# Guard against silently checking only lib/ again: numpy/Kivy must have been seen.
+[ "$pyext" -gt 0 ] || { echo "::error::No Python extension modules (*cpython-*.so) found -- the Python bundle was not inspected"; exit 1; }
 
 # zipalign with -P needs build-tools 35+. Take the newest installed.
 ZIPALIGN="$(ls "$SDK"/build-tools/*/zipalign 2>/dev/null | sort -V | tail -1 || true)"
@@ -108,8 +115,28 @@ case "$PKG" in
   *) echo "::error::Unknown package type: $PKG"; exit 1 ;;
 esac
 
-if [ "$failed" -ne 0 ] || [ "$zip_failed" -ne 0 ]; then
-  echo "::error::16 KB check failed for $PKG ($failed .so misaligned, zipalign failed=$zip_failed)"
+# Permissions. The store listing and the Data safety form promise microphone
+# only and NO network access, so INTERNET appearing here is a failure.
+perm_failed=0
+AAPT2="$(ls "$SDK"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1 || true)"
+case "$PKG" in
+  *.apk) perm_apk="$PKG" ;;
+  *.aab) perm_apk="$(find "$WORK/apks" -name 'base-master*.apk' | head -1)" ;;
+esac
+if [ -n "$AAPT2" ] && [ -n "${perm_apk:-}" ]; then
+  perms="$("$AAPT2" dump permissions "$perm_apk" | grep -oE "name='[^']+'" | sed "s/name='//; s/'//" | sort -u)"
+  echo "== Manifest permissions:"; echo "$perms" | sed 's/^/   /'
+  { echo; echo "**Manifest permissions:**"; echo "$perms" | sed 's/^/- `/; s/$/`/'; } >> "$SUMMARY"
+  if echo "$perms" | grep -qx 'android.permission.INTERNET'; then
+    echo "::error::INTERNET permission present -- the listing and Data safety form claim no network access"
+    perm_failed=1
+  fi
+else
+  echo "::warning::aapt2 not found -- manifest permissions not checked"
+fi
+
+if [ "$failed" -ne 0 ] || [ "$zip_failed" -ne 0 ] || [ "$perm_failed" -ne 0 ]; then
+  echo "::error::Package check failed for $PKG ($failed .so misaligned, zipalign failed=$zip_failed, INTERNET present=$perm_failed)"
   exit 1
 fi
 echo "== 16 KB check passed for $PKG"
