@@ -1,4 +1,4 @@
-# Play Store listing copy — Guitar Tuner v1.0.0
+# Play Store listing copy — Guitar Tuner
 
 ## Short description (80 char max)
 
