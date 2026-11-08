@@ -1,37 +1,41 @@
-The `v1.0.2` tag run succeeded. My Play Console tab (Guitar Tuner, com.ahmedsalman.guitartuner) is open.
+# Release prompt for Claude in Chrome (Guitar Tuner, any version after 1.0.3)
 
-Repo: https://github.com/AhmSulman/Guitar_Tuner (local: C:\dev\Guitar_Tuner)
-Run: <link to the green `v1.0.2` tag run: Actions → "Build Guitar Tuner APK" → the run for tag v1.0.2>
-Bundle: play-upload/build/guitartuner-1.0.2-arm64-v8a-release.aab  (version name: 1.0.2, versionCode: 102610002)
-  (staged with `python store/stage_play_upload.py --aab <downloaded GuitarTuner-AAB-signed file>`)
+> Fill in the version and versionCode, then paste everything below the line into the Claude
+> extension, in the Chrome window where Play Console is open. Do steps 1–5 of
+> `play-upload/README.md` first, so the signed AAB is already verified in `play-upload/build/`.
 
-Do this in order. Stop before any irreversible click (Upload, Save, Next, Roll out, Submit) and ask me first.
+---
 
-1. VERIFY THE BUILD before anything goes to Play. Run these locally (Java 17 is installed):
-   - `java -jar bundletool.jar dump manifest --bundle=<aab>`. Confirm the package is com.ahmedsalman.guitartuner,
-     versionCode 102610002 (> 102610001), versionName 1.0.2, and targetSdkVersion 36.
-   - Confirm it's an .aab and not the GuitarTuner-AAB-unsigned PR artifact. That one is unsigned and 102610001.
-   - `keytool -printcert -jarfile <aab>`: give me the SHA-1. I'll compare it to Play Console → Test and release →
-     App integrity → Upload key certificate. If it doesn't match, STOP. Don't upload. Go to the
-     upload-key reset checklist instead.
-   - List every uses-permission in the manifest and flag anything beyond RECORD_AUDIO
-     (INTERNET would contradict the listing, the privacy policy and declarations.md).
-   - Confirm the tag run's "Verify 16 KB page alignment (signed AAB)" step passed, including the Python
-     extension modules from libpybundle.so and zipalign -P 16 on the split APKs.
+You're working in my Google Play Console in this Chrome window. App: **Guitar Tuner**, package
+**com.ahmedsalman.guitartuner**. Goal: publish version **<VERSION>** (versionCode **<CODE>**) to
+internal testing, then to the closed test.
 
-2. AUDIT play-upload/ against play-upload/README.md
-   - Re-run `python store/stage_play_upload.py` and show its table (text lengths, image sizes/alpha, count).
-   - Check the privacy policy URL in policy/privacy_policy_url.txt still returns 200 publicly and has the microphone section.
-   - Report anything missing or invalid as a short table.
+## Rules
+1. **Ask before every irreversible click:** Save, Next, Upload, Publish, Roll out, Send for review, Remove, Discard, Delete. One OK covers one click. Before each one, show me what will be submitted.
+2. You can't access files on my disk. Tell me which upload box to use, and I'll drop the file in.
+3. Never type or invent email addresses.
+4. **STOP and tell me** if anything differs from this prompt: package, versionCode, permissions, any **error** on a review page, or a form you don't recognise.
+5. Don't touch: App signing, pricing, Monetize, Advanced settings, Production, Open testing, and the old empty closed track "guitartuner-1.0.1-arm64-v8a-release".
 
-3. INTERNAL TESTING DRAFT (release 5, currently empty)
-   - Tell me exactly which file to drop into "Upload". You can't upload files for me, so I'll do it.
-   - After I upload, check that Play's processing shows no errors or warnings. Then fill in the release name `1.0.2`
-     and the en-US notes from listing/release_notes.txt, and wait for my OK before Next / Roll out.
+## Expected facts
+| | |
+|---|---|
+| Bundle | `play-upload/build/guitartuner-<VERSION>-arm64-v8a-release.aab` (signed) |
+| Version name / code | **<VERSION> / <CODE>**. It must be higher than every previous code (latest released: 10003) |
+| Permission | `android.permission.RECORD_AUDIO` only |
+| Upload key SHA-1 | `37:83:10:AF:58:C0:12:4F:77:50:D7:BE:FA:2C:4E:88:AF:0E:85:80` |
+| Expected review warnings | only "no deobfuscation file" and "no native debug symbols", both harmless. **Any error = STOP** |
 
-4. FILL THE STORE LISTING + APP CONTENT forms from play-upload/listing, play-upload/graphics and
-   play-upload/declarations.md. Show me each form's answers before saving. Trader status and the
-   public contact email are my decisions. Ask me, don't pick.
+## Step 1: Internal testing
+Test and release → Testing → Internal testing → **Create new release**. Tell me when the upload box is showing, and I'll drop in the bundle.
+After processing, check that the bundle row says **<CODE> (<VERSION>)**. Release name `<VERSION>`; paste the notes I give you, inside `<en-US>…</en-US>`.
+Next → show me every error and warning → **Save and publish** (my OK).
 
-5. Finish with what's still blocking production (closed test: 12 testers × 14 days) and the next
-   3 actions for me.
+## Step 2: Closed testing
+Testing → Closed testing → **Alpha** → Create new release → **Add from library** → tick **only <CODE>** → same name and notes → Next → show me the warnings → Save (my OK).
+
+## Step 3: Send for review
+Publishing overview → list every change in "Changes not yet sent for review" → **Send changes for review** (my OK).
+
+## Finish
+Tell me the internal release status, the closed release status, and the text shown in Publishing overview.
