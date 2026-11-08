@@ -145,7 +145,8 @@ def main() -> int:
         shutil.copyfile(src, dst)
         w, h, alpha = png_info(dst)
         ratio = max(w, h) / min(w, h)
-        ok = 320 <= min(w, h) and max(w, h) <= 3840 and ratio <= 2.0 and not alpha \
+        # Play now requires exactly 16:9 or 9:16; the old "up to 2:1" rule is gone.
+        ok = 320 <= min(w, h) and max(w, h) <= 3840 and min(w, h) * 16 == max(w, h) * 9 and not alpha \
             and dst.stat().st_size <= 8_000_000
         check(f"graphics/phone/{dst.name}", ok,
               f"{w}x{h} ({ratio:.2f}:1), {'HAS ALPHA' if alpha else 'no alpha'}  <- {src.name}")

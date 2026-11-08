@@ -1,14 +1,19 @@
-"""Crop device captures to Play's 2:1 aspect limit.
+"""Turn device captures into Play phone screenshots: exactly 9:16, no alpha.
 
-A Pixel captures at 1080x2424, which is 2.24:1. Play rejects anything wider
-than 2:1, so 264 rows have to go. Removing the status bar and the gesture bar
-is exactly what you want to remove anyway.
+Play Console (Nov 2026) requires phone screenshots to be 16:9 or 9:16. The
+old "no wider than 2:1" rule is gone. A Pixel captures at 1080x2424, so:
+
+  1. crop to 2:1 by dropping the status bar and gesture bar (1080x2160), then
+  2. pad the sides to 9:16 (1215x2160) by repeating each row's edge pixel, so
+     full-width bars run on seamlessly and nothing in the UI is cut off.
+
+This is how the published 1.0.3 set in store/screenshots/ was made.
 
     python store/crop_shots.py shot1.png shot2.png shot3.png shot4.png
 
 Writes 01-<name>.png ... into store/screenshots/. Adjust the split with
 --top / --bottom if the bars on your device are a different height; the script
-always lands on exactly 2:1 regardless, by absorbing the remainder at the bottom.
+always lands on exactly 2:1 before padding, and the output is always exactly 9:16.
 """
 from __future__ import annotations
 
@@ -20,9 +25,32 @@ import sys
 from PIL import Image
 
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'screenshots')
-MAX_RATIO = 2.0          # Play's hard limit
+MAX_RATIO = 2.0          # crop target before padding (drops the system bars)
 MIN_SIDE, MAX_SIDE = 320, 3840
 MAX_BYTES = 8 * 1024 * 1024
+
+
+def pad_to_9x16(im: Image.Image) -> Image.Image:
+    """Make the image exactly 9:16 without cutting anything.
+
+    Trim the height to a multiple of 16, then widen to h*9/16 by repeating the
+    outermost pixel column on each side. Padding with each row's own edge
+    colour, not a flat fill, keeps full-width bars seamless.
+    """
+    w, h = im.size
+    h -= h % 16
+    im = im.crop((0, 0, w, h))
+    target = h * 9 // 16
+    if target <= w:  # already 9:16 or wider: centre-crop the width instead
+        left = (w - target) // 2
+        return im.crop((left, 0, left + target, h))
+    pad_l = (target - w) // 2
+    pad_r = target - w - pad_l
+    out = Image.new('RGB', (target, h))
+    out.paste(im, (pad_l, 0))
+    out.paste(im.crop((0, 0, 1, h)).resize((pad_l, h)), (0, 0))
+    out.paste(im.crop((w - 1, 0, w, h)).resize((pad_r, h)), (pad_l + w, 0))
+    return out
 
 
 def crop_one(path: str, top: int, bottom: int, index: int, slug: str | None = None) -> str:
@@ -54,14 +82,14 @@ def crop_one(path: str, top: int, bottom: int, index: int, slug: str | None = No
     out_name = f'{index:02d}-{stem}.png'
     out = os.path.join(OUT_DIR, out_name)
     os.makedirs(OUT_DIR, exist_ok=True)
-    cropped = im.crop((0, box_top, w, box_bottom))
+    cropped = pad_to_9x16(im.crop((0, box_top, w, box_bottom)))
     cropped.save(out, 'PNG', optimize=True)
 
     cw, ch = cropped.size
     size = os.path.getsize(out)
     problems = []
-    if ch / cw > MAX_RATIO + 1e-6:
-        problems.append(f'ratio {ch/cw:.2f}:1 still over {MAX_RATIO}:1')
+    if cw * 16 != ch * 9:
+        problems.append(f'{cw}x{ch} is not exactly 9:16')
     if min(cw, ch) < MIN_SIDE:
         problems.append(f'short side {min(cw, ch)} under {MIN_SIDE}')
     if max(cw, ch) > MAX_SIDE:

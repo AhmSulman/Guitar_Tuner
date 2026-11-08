@@ -6,6 +6,11 @@ permission (`RECORD_AUDIO`), no `INTERNET`, no SDKs, no accounts.
 
 If the permissions ever change, re-check the **Data safety** and **Ads** sections first.
 
+> **Status (8 Nov 2026):** every form below has been filled in and submitted exactly as written.
+> 1.0.3 (versionCode 10003) is live on internal testing, and the closed test (Alpha track:
+> Canada, Pakistan, UAE, UK) was sent for Google review. What actually happened, including the
+> two gotchas, is in the notes at the end.
+
 ---
 
 ## Assets checklist
@@ -14,7 +19,7 @@ If the permissions ever change, re-check the **Data safety** and **Ads** section
 |---|---|---|---|
 | App icon | `icon.png` | 512×512, 32-bit PNG, ≤1 MB | ✅ 512×512 RGBA, 0.39 MB |
 | Feature graphic | `store/feature-graphic.png` | 1024×500, JPEG or 24-bit PNG, no alpha | ✅ 1024×500 RGB |
-| Phone screenshots | `store/screenshots/01–05` | 2–8, ≤2:1, no alpha | ✅ 5 × 1080×2160 RGB |
+| Phone screenshots | `store/screenshots/01–05` | 2–8, **exactly 16:9 or 9:16**, no alpha | ✅ 5 × 1215×2160 RGB (9:16) |
 | Short description | `store/listing.md` | ≤80 chars | ✅ 70 chars |
 | Full description | `store/listing.md` | ≤4000 chars | ✅ ~1,900 chars |
 | Release notes | `store/release-notes.md` | ≤500 chars | ✅ 382 chars (closed-test version) |
@@ -90,8 +95,8 @@ None needed. `RECORD_AUDIO` isn't a restricted permission (unlike SMS, call log,
 1. **Create track** (or use the default *Alpha* closed track). Name it e.g. "Closed test".
 2. **Testers** tab: add an email list containing all 12+ tester Google accounts. Use the roster in `private/`, which is gitignored.
 3. **Countries/regions**: add every country your testers are in. If you skip this, they can't install the app.
-4. **Create new release**: upload `guitartuner-1.0.2-arm64-v8a-release.aab` from the `GuitarTuner-AAB-signed` artifact of the `v1.0.2` tag run. Play will show version code **102610002**.
-5. Release name: `1.0.2`. Release notes: the closed-test block from `store/release-notes.md`.
+4. **Create new release → Add from library**: pick the bundle already used for internal testing, from the `GuitarTuner-AAB-signed` artifact of the matching `v*` tag run. For 1.0.3 that was versionCode **10003**.
+5. Release name: the version (e.g. `1.0.3`). Release notes: the closed-test block from `store/release-notes.md`.
 6. **Review release → Start rollout to Closed testing.**
 7. Copy the **opt-in URL** from the Testers tab into `store/tester-invite.md`'s template, and send it to the testers.
 
@@ -107,5 +112,17 @@ None needed. `RECORD_AUDIO` isn't a restricted permission (unlike SMS, call log,
 
 The AAB is signed in CI with the keystore in GitHub Secrets. Play only accepts it if that key matches the **upload key** registered under **Test and release → App integrity → App signing**.
 
-- If an earlier draft (version code 102610001) was uploaded, the upload key is already registered, and the CI key must match it.
-- If Play rejects the upload with *"signed with the wrong key"*, the secret holds a different keystore. `generate-keystore.yml` ran twice, on 6 Jul and 17 Sep. Use the upload-key reset in the main checklist.
+- Checked on 8 Nov 2026: the CI key **matches** Play's upload certificate (SHA-1 `37:83:10:AF:58:C0:12:4F:77:50:D7:BE:FA:2C:4E:88:AF:0E:85:80`, serial `9c21665dbade6d02`). Compare any new bundle with `keytool -printcert -jarfile <aab>`.
+- If Play ever rejects an upload with *"signed with the wrong key"*, use App integrity → **Request upload key reset**.
+
+---
+
+## Notes from the first publish (Nov 2026)
+
+1. **Play blocked p4a's default version code.** p4a builds versionCode as `"10" + minSdk + version`, so 1.0.2 became `102610002`. On an app's first release, Play shows *"version code is significantly higher than your previous version code"* as a **blocking error** on the review page. `buildozer.spec` now sets `android.numeric_version` (`major*10000 + minor*100 + patch`), and CI fails anything above 1,000,000. Codes `102610001` and `102610002` are burned: uploaded but never released, and never reusable.
+2. **Screenshots must now be exactly 16:9 or 9:16.** The 1080×2160 (2:1) set was rejected for the slot. `store/crop_shots.py` now pads captures to 1215×2160.
+3. **Play's checkboxes sometimes ignore a click** (Health, IARC terms, Content-rating answers). After ticking, confirm the tick is actually shown before saving.
+4. The **content-rating questions appear one at a time**. Each one only shows up after the previous one is answered.
+5. **AI asset declaration** on the store listing: answered "Don't label assets". The icon, feature graphic and screenshots aren't AI-generated.
+6. **Trader status:** the account is a trader, so the app-level form inherits **"Yes"**. No Terms of Service URL.
+7. Until the first review is approved, internal testers see the temporary name **"com.ahmedsalman.guitartuner (unreviewed)"**.
