@@ -38,6 +38,21 @@ jobs:
           key: buildozer-${{ hashFiles('buildozer.spec') }}-v5
           restore-keys: buildozer-
 
+      # p4a's downloaded source tarballs (OpenSSL, SDL2, CPython, ...) and the
+      # bundletool jar. Most of these come from GitHub Releases, which can
+      # return 504 for hours (2026-11-08: every release download failed, and
+      # openssl.org just redirects there). Cached, a build only needs the
+      # network for what changed. Restored by prefix, so a new spec still
+      # starts from the last good set.
+      - name: Cache p4a source downloads and bundletool
+        uses: actions/cache@v4
+        with:
+          path: |
+            .buildozer/android/platform/build-arm64-v8a/packages
+            ~/.cache/bundletool
+          key: p4a-packages-${{ hashFiles('buildozer.spec') }}-v1
+          restore-keys: p4a-packages-
+
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
@@ -136,6 +151,21 @@ jobs:
           path: ~/.buildozer
           key: buildozer-release-${{ hashFiles('buildozer.spec') }}-v1
           restore-keys: buildozer-release-
+
+      # p4a's downloaded source tarballs (OpenSSL, SDL2, CPython, ...) and the
+      # bundletool jar. Most of these come from GitHub Releases, which can
+      # return 504 for hours (2026-11-08: every release download failed, and
+      # openssl.org just redirects there). Cached, a build only needs the
+      # network for what changed. Restored by prefix, so a new spec still
+      # starts from the last good set.
+      - name: Cache p4a source downloads and bundletool
+        uses: actions/cache@v4
+        with:
+          path: |
+            .buildozer/android/platform/build-arm64-v8a/packages
+            ~/.cache/bundletool
+          key: p4a-packages-${{ hashFiles('buildozer.spec') }}-v1
+          restore-keys: p4a-packages-
 
       - name: Install system dependencies
         run: |

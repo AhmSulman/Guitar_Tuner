@@ -120,9 +120,15 @@ case "$PKG" in
     zipcheck "$PKG"
     ;;
   *.aab)
-    jar="$WORK/bundletool.jar"
-    curl -fsSL -o "$jar" \
-      "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
+    # Cached across runs by the workflow (GitHub Releases downloads can 504 for
+    # hours); only fetch when missing, with retries.
+    jar="$HOME/.cache/bundletool/bundletool-all-${BUNDLETOOL_VERSION}.jar"
+    if [ ! -s "$jar" ]; then
+      mkdir -p "$(dirname "$jar")"
+      curl -fsSL --retry 8 --retry-delay 15 --retry-all-errors -o "$jar.part" \
+        "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
+      mv "$jar.part" "$jar"
+    fi
     # Signs with ~/.android/debug.keystore if present -- irrelevant to alignment.
     java -jar "$jar" build-apks --bundle="$PKG" --output="$WORK/out.apks"
     unzip -q "$WORK/out.apks" -d "$WORK/apks"
