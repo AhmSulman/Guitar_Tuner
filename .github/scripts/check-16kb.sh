@@ -151,8 +151,26 @@ else
   echo "::warning::aapt2 not found -- manifest permissions not checked"
 fi
 
-if [ "$failed" -ne 0 ] || [ "$zip_failed" -ne 0 ] || [ "$perm_failed" -ne 0 ]; then
-  echo "::error::Package check failed for $PKG ($failed .so misaligned, zipalign failed=$zip_failed, INTERNET present=$perm_failed)"
+# versionCode. Play Console blocks a release whose versionCode jumps far above
+# the previous one ("significantly higher than your previous version code").
+# p4a's default scheme ("10" + minSdk + version, ~102,610,003) trips it, so the
+# spec sets android.numeric_version; fail if that ever goes missing.
+vc_failed=0
+MAX_VERSION_CODE=1000000
+if [ -n "$AAPT2" ] && [ -n "${perm_apk:-}" ]; then
+  badging="$("$AAPT2" dump badging "$perm_apk" | head -1)"
+  vcode="$(echo "$badging" | grep -oE "versionCode='[0-9]+'" | grep -oE '[0-9]+')"
+  vname="$(echo "$badging" | grep -oE "versionName='[^']*'" | sed "s/versionName='//; s/'//")"
+  echo "== versionCode $vcode, versionName $vname"
+  { echo; echo "**versionCode:** \`$vcode\` · **versionName:** \`$vname\`"; } >> "$SUMMARY"
+  if [ -z "$vcode" ] || [ "$vcode" -gt "$MAX_VERSION_CODE" ]; then
+    echo "::error::versionCode '$vcode' is missing or above $MAX_VERSION_CODE -- set android.numeric_version in buildozer.spec (major*10000 + minor*100 + patch)"
+    vc_failed=1
+  fi
+fi
+
+if [ "$failed" -ne 0 ] || [ "$zip_failed" -ne 0 ] || [ "$perm_failed" -ne 0 ] || [ "$vc_failed" -ne 0 ]; then
+  echo "::error::Package check failed for $PKG ($failed .so misaligned, zipalign failed=$zip_failed, INTERNET present=$perm_failed, versionCode bad=$vc_failed)"
   exit 1
 fi
 echo "== 16 KB check passed for $PKG"
