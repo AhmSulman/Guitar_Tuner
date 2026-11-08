@@ -153,7 +153,7 @@ CI step output — not just that the build is green.
 ### Version codes — set explicitly, bump every release
 
 `buildozer.spec` sets `android.numeric_version` = `major*10000 + minor*100 + patch`
-(1.0.3 → `10003`). **Bump it together with `version` on every release.** Play rejects a
+(1.0.4 → `10004`). **Bump it together with `version` on every release.** Play rejects a
 reused versionCode, even one from a bundle that was only uploaded and never released.
 
 Why: without it, p4a generates `"10" + minSdk + version` (1.0.2 → `102610002`). Play
@@ -176,7 +176,9 @@ not yet granted — the `start()` method checks this and logs clearly.
 
 `pitch.py::detect_pitch()` uses the YIN difference function accelerated with FFT
 autocorrelation (O(N log N) vs O(N²)). Threshold = 0.20 (lower = stricter).
-Parabolic interpolation gives sub-sample period accuracy.
+Parabolic interpolation gives sub-sample period accuracy: vertex at `(a - c) / (2(a + c - 2b))`.
+That sign was flipped until 1.0.4, which put the top strings 5-13 cents off. Every string of
+every tuning is now within 1 cent (`test_every_string_of_every_tuning_within_one_cent`).
 Silence gate at RMS < 0.005 prevents spurious readings.
 
 `MIN_FREQ` is **35 Hz**, not 50. At 50 Hz there was only 465 cents of headroom above

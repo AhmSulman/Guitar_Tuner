@@ -48,6 +48,14 @@ jobs:
           echo "VIRTUAL_ENV=$HOME/venv" >> "$GITHUB_ENV"
           "$HOME/venv/bin/python" --version
 
+      # Seconds, not minutes: fail before the 40-minute build if pitch detection,
+      # string resolution or the settings cache regress. Needs only numpy.
+      # (The interpolation sign bug fixed in 1.0.4 shipped because nothing ran these.)
+      - name: Run unit tests
+        run: |
+          python -m pip install --quiet numpy
+          python -m unittest -v test_tuner
+
       - name: Cache buildozer downloads
         uses: actions/cache@v4
         with:

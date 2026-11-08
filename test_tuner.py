@@ -27,6 +27,16 @@ def sine(freq, seconds=0.75, rate=SR, amp=0.4):
                    + 0.2 * np.sin(6 * np.pi * freq * t))).astype(np.float64)
 
 
+def pluck(freq, seed, seconds=0.75, rate=SR):
+    """A harsher stand-in for a real string: 8 harmonics at random phases,
+    exponential decay and a little background noise. Seeded, so deterministic."""
+    rng = np.random.default_rng(seed)
+    t = np.arange(int(rate * seconds)) / rate
+    x = sum((0.8 ** k) * np.sin(2 * np.pi * freq * (k + 1) * t + rng.uniform(0, 2 * np.pi))
+            for k in range(8)) * np.exp(-1.5 * t)
+    return (0.3 * x / np.max(np.abs(x)) + rng.normal(0, 0.003, t.size)).astype(np.float64)
+
+
 class TestStringResolution(unittest.TestCase):
 
     def test_every_tuning_resolves_its_own_strings(self):
@@ -129,6 +139,30 @@ class TestPitchDetection(unittest.TestCase):
             ratio = got / hz
             self.assertGreater(ratio, 0.9, f'{note}: octave-down error, got {got:.1f}')
             self.assertLess(ratio, 1.1, f'{note}: octave-up error, got {got:.1f}')
+
+    def test_every_string_of_every_tuning_within_one_cent(self):
+        """Sub-sample interpolation must move toward the true period, not away.
+
+        The parabolic step had its sign flipped, which pushed the estimate the
+        wrong way. Low strings barely noticed (one sample is a tiny fraction of
+        a C2 period), but the top strings read 5-13 cents off: A3/D4 in Drop C
+        and E4 in Standard. The in-tune window is +/-3 cents, so a string could
+        show green while audibly out. The old test only checked each tuning's
+        lowest string, at 5 cents.
+        """
+        notes = sorted({n for ns in TUNINGS.values() for n in ns}, key=note_to_freq)
+        worst = (0.0, '')
+        for note in notes:
+            for detune in (-20.0, -3.0, 0.0, 3.0, 20.0):
+                for seed in range(3):
+                    hz = note_to_freq(note) * 2 ** (detune / 1200)
+                    got, _ = detect_pitch(pluck(hz, seed), SR)
+                    self.assertIsNotNone(got, f'{note}{detune:+.0f}c not detected')
+                    err = abs(1200 * np.log2(got / hz))
+                    if err > worst[0]:
+                        worst = (err, f'{note} {detune:+.0f}c seed {seed}')
+        self.assertLess(worst[0], 1.0,
+                        f'worst error {worst[0]:.2f} cents at {worst[1]}')
 
 
 class TestCache(unittest.TestCase):
