@@ -14,7 +14,16 @@ source.include_exts = py,png,jpg,kv,atlas,ttf,wav
 source.exclude_dirs = store, docs, OKF, bin, .github, private, upload
 source.exclude_patterns = Guitar_Tuner_AppIcon.png, test_*.py
 
-version = 1.0.2
+version = 1.0.3
+
+# versionCode, set explicitly: major*10000 + minor*100 + patch (1.0.3 -> 10003,
+# 1.1.0 -> 10100, 2.0.0 -> 20000). Without this p4a generates "10" + minSdk +
+# version, i.e. 102610003, and Play Console blocks the first release with
+# "This release's version code is significantly higher than your previous
+# version code". BUMP THIS TOGETHER WITH `version` ON EVERY RELEASE: Play
+# rejects a reused versionCode. CI fails any build whose versionCode is above
+# 1,000,000 so the p4a default can't creep back in.
+android.numeric_version = 10003
 
 # Dependencies
 # chardet is pinned because p4a's Kivy recipe always pulls in requests + chardet

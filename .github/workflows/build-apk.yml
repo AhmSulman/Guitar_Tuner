@@ -26,10 +26,27 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # setup-python downloads its toolchain from GitHub Releases, which can
+      # 504 for hours. If it fails, fall back to the runner's own Python 3.10
+      # (Ubuntu 22.04 ships 3.10.12) in a venv, so pip/buildozer resolve the same.
       - name: Set up Python 3.10
+        id: setup_py
+        continue-on-error: true
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
+      - name: Fall back to the runner's system Python 3.10
+        if: steps.setup_py.outcome == 'failure'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-venv python3-pip
+          python3 -m venv "$HOME/venv"
+          echo "$HOME/venv/bin" >> "$GITHUB_PATH"
+          # Buildozer adds `pip install --user` unless VIRTUAL_ENV is set, and
+          # --user installs fail inside a venv.
+          echo "VIRTUAL_ENV=$HOME/venv" >> "$GITHUB_ENV"
+          "$HOME/venv/bin/python" --version
 
       - name: Cache buildozer downloads
         uses: actions/cache@v4
@@ -37,6 +54,21 @@ jobs:
           path: ~/.buildozer
           key: buildozer-${{ hashFiles('buildozer.spec') }}-v5
           restore-keys: buildozer-
+
+      # p4a's downloaded source tarballs (OpenSSL, SDL2, CPython, ...) and the
+      # bundletool jar. Most of these come from GitHub Releases, which can
+      # return 504 for hours (2026-11-08: every release download failed, and
+      # openssl.org just redirects there). Cached, a build only needs the
+      # network for what changed. Restored by prefix, so a new spec still
+      # starts from the last good set.
+      - name: Cache p4a source downloads and bundletool
+        uses: actions/cache@v4
+        with:
+          path: |
+            .buildozer/android/platform/build-arm64-v8a/packages
+            ~/.cache/bundletool
+          key: p4a-packages-${{ hashFiles('buildozer.spec') }}-v1
+          restore-keys: p4a-packages-
 
       - name: Install system dependencies
         run: |
@@ -61,6 +93,11 @@ jobs:
           printf '%s\n' \
             '84831b9409646a918e30573bab4c9c91346d8abd' \
             > "$HOME/.android/licenses/android-sdk-preview-license"
+
+      # GitHub Releases can 504 for hours; seed p4a's download cache from
+      # SHA-256-pinned mirrors so OpenSSL/SDL2 never depend on it alone.
+      - name: Pre-fetch p4a sources (GitHub Releases fallback)
+        run: bash .github/scripts/prefetch-p4a-sources.sh
 
       - name: Build APK
         run: yes | buildozer -v android debug
@@ -125,10 +162,27 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # setup-python downloads its toolchain from GitHub Releases, which can
+      # 504 for hours. If it fails, fall back to the runner's own Python 3.10
+      # (Ubuntu 22.04 ships 3.10.12) in a venv, so pip/buildozer resolve the same.
       - name: Set up Python 3.10
+        id: setup_py
+        continue-on-error: true
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
+      - name: Fall back to the runner's system Python 3.10
+        if: steps.setup_py.outcome == 'failure'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-venv python3-pip
+          python3 -m venv "$HOME/venv"
+          echo "$HOME/venv/bin" >> "$GITHUB_PATH"
+          # Buildozer adds `pip install --user` unless VIRTUAL_ENV is set, and
+          # --user installs fail inside a venv.
+          echo "VIRTUAL_ENV=$HOME/venv" >> "$GITHUB_ENV"
+          "$HOME/venv/bin/python" --version
 
       - name: Cache buildozer downloads
         uses: actions/cache@v4
@@ -136,6 +190,21 @@ jobs:
           path: ~/.buildozer
           key: buildozer-release-${{ hashFiles('buildozer.spec') }}-v1
           restore-keys: buildozer-release-
+
+      # p4a's downloaded source tarballs (OpenSSL, SDL2, CPython, ...) and the
+      # bundletool jar. Most of these come from GitHub Releases, which can
+      # return 504 for hours (2026-11-08: every release download failed, and
+      # openssl.org just redirects there). Cached, a build only needs the
+      # network for what changed. Restored by prefix, so a new spec still
+      # starts from the last good set.
+      - name: Cache p4a source downloads and bundletool
+        uses: actions/cache@v4
+        with:
+          path: |
+            .buildozer/android/platform/build-arm64-v8a/packages
+            ~/.cache/bundletool
+          key: p4a-packages-${{ hashFiles('buildozer.spec') }}-v1
+          restore-keys: p4a-packages-
 
       - name: Install system dependencies
         run: |
@@ -166,6 +235,11 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$HOME/release.keystore"
+
+      # GitHub Releases can 504 for hours; seed p4a's download cache from
+      # SHA-256-pinned mirrors so OpenSSL/SDL2 never depend on it alone.
+      - name: Pre-fetch p4a sources (GitHub Releases fallback)
+        run: bash .github/scripts/prefetch-p4a-sources.sh
 
       - name: Build signed release AAB
         env:

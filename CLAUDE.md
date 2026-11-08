@@ -150,6 +150,21 @@ CI step output — not just that the build is green.
   `zipalign -c -P 16`. PR CI builds the release AAB too, so the uploaded artifact type is
   what gets tested.
 
+### Version codes — set explicitly, bump every release
+
+`buildozer.spec` sets `android.numeric_version` = `major*10000 + minor*100 + patch`
+(1.0.3 → `10003`). **Bump it together with `version` on every release.** Play rejects a
+reused versionCode, even one from a bundle that was only uploaded and never released.
+
+Why: without it, p4a generates `"10" + minSdk + version` (1.0.2 → `102610002`). Play
+Console then **blocks** the first release with *"This release's version code is
+significantly higher than your previous version code"*. It's an error, not a warning, and
+it only shows on the release review page, after the upload has already consumed the code.
+`check-16kb.sh` fails CI if the versionCode is above 1,000,000.
+
+Burned codes (uploaded, never released, never reusable): `102610001` (1.0.1),
+`102610002` (1.0.2).
+
 ### Android permissions
 
 `RECORD_AUDIO` is declared in `buildozer.spec` (manifest) **and** requested at
