@@ -94,6 +94,11 @@ jobs:
             '84831b9409646a918e30573bab4c9c91346d8abd' \
             > "$HOME/.android/licenses/android-sdk-preview-license"
 
+      # GitHub Releases can 504 for hours; seed p4a's download cache from
+      # SHA-256-pinned mirrors so OpenSSL/SDL2 never depend on it alone.
+      - name: Pre-fetch p4a sources (GitHub Releases fallback)
+        run: bash .github/scripts/prefetch-p4a-sources.sh
+
       - name: Build APK
         run: yes | buildozer -v android debug
 
@@ -230,6 +235,11 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$HOME/release.keystore"
+
+      # GitHub Releases can 504 for hours; seed p4a's download cache from
+      # SHA-256-pinned mirrors so OpenSSL/SDL2 never depend on it alone.
+      - name: Pre-fetch p4a sources (GitHub Releases fallback)
+        run: bash .github/scripts/prefetch-p4a-sources.sh
 
       - name: Build signed release AAB
         env:
