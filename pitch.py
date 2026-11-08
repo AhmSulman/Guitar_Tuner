@@ -67,9 +67,15 @@ def detect_pitch(samples: np.ndarray,
         conf = max(0.0, 1.0 - float(cmnd[tau_est]))
 
     # ── Step 5: Parabolic interpolation for sub-sample precision ─────────
+    # A parabola through (-1, a), (0, b), (+1, c) has its vertex at
+    # x = (a - c) / (2 * (a + c - 2b)). This denominator was once written
+    # 2*(2b - a - c), flipping the sign, so the "correction" pushed the
+    # estimate away from the true period: 5-13 cents off on the top strings,
+    # enough to show IN TUNE (+/-3 cents) on an audibly sour string.
+    # test_every_string_of_every_tuning_within_one_cent guards this.
     if 1 <= tau_est <= tau_max - 1:
         a, b, c = cmnd[tau_est - 1], cmnd[tau_est], cmnd[tau_est + 1]
-        denom = 2.0 * (2.0 * b - a - c)
+        denom = 2.0 * (a + c - 2.0 * b)
         shift = float(np.clip((a - c) / denom if abs(denom) > 1e-12 else 0.0,
                               -1.0, 1.0))
         tau_precise = tau_est + shift
