@@ -26,10 +26,27 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # setup-python downloads its toolchain from GitHub Releases, which can
+      # 504 for hours. If it fails, fall back to the runner's own Python 3.10
+      # (Ubuntu 22.04 ships 3.10.12) in a venv, so pip/buildozer resolve the same.
       - name: Set up Python 3.10
+        id: setup_py
+        continue-on-error: true
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
+      - name: Fall back to the runner's system Python 3.10
+        if: steps.setup_py.outcome == 'failure'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-venv python3-pip
+          python3 -m venv "$HOME/venv"
+          echo "$HOME/venv/bin" >> "$GITHUB_PATH"
+          # Buildozer adds `pip install --user` unless VIRTUAL_ENV is set, and
+          # --user installs fail inside a venv.
+          echo "VIRTUAL_ENV=$HOME/venv" >> "$GITHUB_ENV"
+          "$HOME/venv/bin/python" --version
 
       - name: Cache buildozer downloads
         uses: actions/cache@v4
@@ -140,10 +157,27 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # setup-python downloads its toolchain from GitHub Releases, which can
+      # 504 for hours. If it fails, fall back to the runner's own Python 3.10
+      # (Ubuntu 22.04 ships 3.10.12) in a venv, so pip/buildozer resolve the same.
       - name: Set up Python 3.10
+        id: setup_py
+        continue-on-error: true
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
+      - name: Fall back to the runner's system Python 3.10
+        if: steps.setup_py.outcome == 'failure'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-venv python3-pip
+          python3 -m venv "$HOME/venv"
+          echo "$HOME/venv/bin" >> "$GITHUB_PATH"
+          # Buildozer adds `pip install --user` unless VIRTUAL_ENV is set, and
+          # --user installs fail inside a venv.
+          echo "VIRTUAL_ENV=$HOME/venv" >> "$GITHUB_ENV"
+          "$HOME/venv/bin/python" --version
 
       - name: Cache buildozer downloads
         uses: actions/cache@v4
